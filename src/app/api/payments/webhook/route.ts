@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
               status_detail: paymentInfo.statusDetail,
               date_approved: paymentInfo.dateApproved,
             });
+            // Libera o pedido automaticamente para a preparação
+            await repository.updateOrderStatus(matchedOrder.id, 'preparing');
           } else if (paymentInfo.status === 'rejected' || paymentInfo.status === 'cancelled') {
             await repository.updatePaymentStatus(matchedOrder.id, 'failed', {
               status_detail: paymentInfo.statusDetail,

@@ -427,6 +427,67 @@ export const repository = {
       updated_at: now,
     };
 
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const { items, ...orderRecord } = newOrder;
+        const { data: insertedOrder, error: orderErr } = await supabase
+          .from('orders')
+          .insert([{
+            order_code: newOrder.order_code,
+            customer_name: newOrder.customer_name,
+            customer_phone: newOrder.customer_phone,
+            order_type: newOrder.order_type,
+            neighborhood_id: newOrder.neighborhood_id || null,
+            neighborhood_name: newOrder.neighborhood_name || null,
+            address_street: newOrder.address_street || null,
+            address_number: newOrder.address_number || null,
+            address_complement: newOrder.address_complement || null,
+            address_reference: newOrder.address_reference || null,
+            order_notes: newOrder.order_notes || null,
+            payment_method: newOrder.payment_method,
+            payment_status: newOrder.payment_status,
+            payment_details: newOrder.payment_details || {},
+            order_status: newOrder.order_status,
+            subtotal: newOrder.subtotal,
+            discount_amount: newOrder.discount_amount,
+            delivery_fee: newOrder.delivery_fee,
+            total_amount: newOrder.total_amount,
+            coupon_code: newOrder.coupon_code || null,
+          }])
+          .select()
+          .single();
+
+        if (!orderErr && insertedOrder) {
+          newOrder.id = insertedOrder.id;
+          newOrder.order_number = insertedOrder.order_number;
+
+          if (items && items.length > 0) {
+            const itemRows = items.map((it) => ({
+              order_id: insertedOrder.id,
+              product_id: it.product_id && it.product_id.includes('-') && it.product_id.length === 36 ? it.product_id : null,
+              product_name: it.product_name,
+              unit_price: it.unit_price,
+              quantity: it.quantity,
+              total_price: it.total_price,
+              selected_options: it.selected_options || [],
+              item_notes: (it as any).notes || it.item_notes || null,
+            }));
+            await supabase.from('order_items').insert(itemRows);
+          }
+
+          await supabase.from('order_status_history').insert([{
+            order_id: insertedOrder.id,
+            from_status: null,
+            to_status: newOrder.order_status,
+            notes: 'Pedido criado',
+          }]);
+        }
+      } catch (err) {
+        console.error('Erro ao persistir pedido no Supabase:', err);
+      }
+    }
+
     globalStore.orders.unshift(newOrder);
 
     // Se aplicou cupom, incrementa used_count
@@ -434,6 +495,11 @@ export const repository = {
       const coupon = await this.getCouponByCode(newOrder.coupon_code);
       if (coupon) {
         coupon.used_count = (coupon.used_count || 0) + 1;
+        if (supabase) {
+          try {
+            await supabase.from('coupons').update({ used_count: coupon.used_count }).eq('code', newOrder.coupon_code);
+          } catch {}
+        }
       }
     }
 
@@ -441,6 +507,18 @@ export const repository = {
   },
 
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order | null> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        await supabase
+          .from('orders')
+          .update({ order_status: status, updated_at: new Date().toISOString() })
+          .or(`id.eq.${orderId},order_code.eq.${orderId}`);
+      } catch (err) {
+        console.error('Erro ao atualizar status no Supabase:', err);
+      }
+    }
+
     const order = await this.getOrderById(orderId);
     if (!order) return null;
 
@@ -450,6 +528,22 @@ export const repository = {
   },
 
   async updatePaymentStatus(orderId: string, status: PaymentStatus, details?: any): Promise<Order | null> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            payment_status: status,
+            payment_details: details || {},
+            updated_at: new Date().toISOString(),
+          })
+          .or(`id.eq.${orderId},order_code.eq.${orderId}`);
+      } catch (err) {
+        console.error('Erro ao atualizar status de pagamento no Supabase:', err);
+      }
+    }
+
     const order = await this.getOrderById(orderId);
     if (!order) return null;
 
