@@ -65,11 +65,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Nome e preço são obrigatórios.' }, { status: 400 });
     }
 
+    const parsePrice = (v: any): number => {
+      if (typeof v === 'number') return v;
+      if (!v && v !== 0) return 0;
+      const clean = String(v).replace(',', '.').trim();
+      const n = parseFloat(clean);
+      return isNaN(n) ? 0 : n;
+    };
+
     // Salvar produto
     let saved = await repository.saveProduct({
       ...product,
-      price: Number(product.price),
-      promotional_price: product.promotional_price ? Number(product.promotional_price) : null,
+      price: parsePrice(product.price),
+      promotional_price: product.promotional_price !== undefined && product.promotional_price !== null && product.promotional_price !== ''
+        ? parsePrice(product.promotional_price)
+        : null,
     });
 
     // Atualizar associações de grupos se Supabase disponível

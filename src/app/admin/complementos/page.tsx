@@ -116,7 +116,7 @@ export default function AdminComplementsPage() {
           option: {
             ...editingOption,
             name: editingOption.name.trim(),
-            price: Number(editingOption.price || 0),
+            price: parseFloat(String(editingOption.price || 0).replace(',', '.')) || 0,
           },
         }),
       });

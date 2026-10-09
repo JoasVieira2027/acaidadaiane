@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       }
       const savedOption = await repository.saveOption(groupId, {
         ...option,
-        price: Number(option.price || 0),
+        price: parseFloat(String(option.price || 0).replace(',', '.')) || 0,
         max_quantity_per_item: Number(option.max_quantity_per_item || 1),
       });
       return NextResponse.json({ success: true, option: savedOption });

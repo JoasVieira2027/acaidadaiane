@@ -77,8 +77,12 @@ export const repository = {
   async getCategories(): Promise<Category[]> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      const { data } = await supabase.from('categories').select('*').order('display_order', { ascending: true });
-      if (data) return data;
+      try {
+        const { data } = await supabase.from('categories').select('*').order('display_order', { ascending: true });
+        if (data && data.length > 0) return data;
+      } catch (err) {
+        console.error('Erro getCategories Supabase:', err);
+      }
     }
     return [...globalStore.categories].sort((a, b) => a.display_order - b.display_order);
   },
@@ -86,12 +90,31 @@ export const repository = {
   async saveCategory(cat: Partial<Category>): Promise<Category> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      if (cat.id) {
-        const { data } = await supabase.from('categories').update(cat).eq('id', cat.id).select().single();
-        if (data) return data;
-      } else {
-        const { data } = await supabase.from('categories').insert([cat]).select().single();
-        if (data) return data;
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        const payload = {
+          name: cat.name || 'Nova Categoria',
+          name_en: cat.name_en || null,
+          name_es: cat.name_es || null,
+          description: cat.description || null,
+          image_url: cat.image_url || null,
+          display_order: cat.display_order ?? 0,
+          is_active: cat.is_active ?? true,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (cat.id && isUuid(cat.id)) {
+          const { data, error } = await supabase.from('categories').update(payload).eq('id', cat.id).select().single();
+          if (!error && data) return data;
+        } else {
+          const { data, error } = await supabase.from('categories').insert([payload]).select().single();
+          if (!error && data) {
+            cat.id = data.id;
+            return data;
+          }
+        }
+      } catch (err) {
+        console.error('Erro saveCategory Supabase:', err);
       }
     }
     if (cat.id) {
@@ -116,7 +139,7 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       const { error } = await supabase.from('categories').delete().eq('id', id);
-      return !error;
+      if (!error) return true;
     }
     globalStore.categories = globalStore.categories.filter((c: Category) => c.id !== id);
     return true;
@@ -126,11 +149,15 @@ export const repository = {
   async getOptionGroups(): Promise<OptionGroup[]> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      const { data } = await supabase
-        .from('option_groups')
-        .select('*, options(*)')
-        .order('display_order', { ascending: true });
-      if (data) return data;
+      try {
+        const { data } = await supabase
+          .from('option_groups')
+          .select('*, options(*)')
+          .order('display_order', { ascending: true });
+        if (data && data.length > 0) return data;
+      } catch (err) {
+        console.error('Erro getOptionGroups Supabase:', err);
+      }
     }
     return globalStore.optionGroups;
   },
@@ -138,12 +165,33 @@ export const repository = {
   async saveOptionGroup(group: Partial<OptionGroup>): Promise<OptionGroup> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      if (group.id) {
-        const { data } = await supabase.from('option_groups').update(group).eq('id', group.id).select().single();
-        if (data) return data;
-      } else {
-        const { data } = await supabase.from('option_groups').insert([group]).select().single();
-        if (data) return data;
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        const payload = {
+          name: group.name || 'Novo Grupo',
+          name_en: group.name_en || null,
+          name_es: group.name_es || null,
+          description: group.description || null,
+          is_required: Boolean(group.is_required),
+          min_options: Number(group.min_options || 0),
+          max_options: Number(group.max_options || 1),
+          display_order: Number(group.display_order || 1),
+          is_active: group.is_active !== undefined ? Boolean(group.is_active) : true,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (group.id && isUuid(group.id)) {
+          const { data, error } = await supabase.from('option_groups').update(payload).eq('id', group.id).select().single();
+          if (!error && data) return data;
+        } else {
+          const { data, error } = await supabase.from('option_groups').insert([payload]).select().single();
+          if (!error && data) {
+            group.id = data.id;
+            return data;
+          }
+        }
+      } catch (err) {
+        console.error('Erro saveOptionGroup Supabase:', err);
       }
     }
     if (group.id) {
@@ -172,7 +220,7 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       const { error } = await supabase.from('option_groups').delete().eq('id', id);
-      return !error;
+      if (!error) return true;
     }
     globalStore.optionGroups = globalStore.optionGroups.filter((g: OptionGroup) => g.id !== id);
     return true;
@@ -181,12 +229,36 @@ export const repository = {
   async saveOption(groupId: string, opt: Partial<Option>): Promise<Option> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      if (opt.id) {
-        const { data } = await supabase.from('options').update(opt).eq('id', opt.id).select().single();
-        if (data) return data;
-      } else {
-        const { data } = await supabase.from('options').insert([{ ...opt, group_id: groupId }]).select().single();
-        if (data) return data;
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        const payload: any = {
+          name: opt.name || 'Nova Opção',
+          name_en: opt.name_en || null,
+          name_es: opt.name_es || null,
+          description: opt.description || null,
+          price: Number(opt.price || 0),
+          image_url: opt.image_url || null,
+          is_available: opt.is_available !== undefined ? Boolean(opt.is_available) : true,
+          max_quantity_per_item: Number(opt.max_quantity_per_item || 1),
+          display_order: Number(opt.display_order || 0),
+          updated_at: new Date().toISOString(),
+        };
+        if (isUuid(groupId)) {
+          payload.group_id = groupId;
+        }
+
+        if (opt.id && isUuid(opt.id)) {
+          const { data, error } = await supabase.from('options').update(payload).eq('id', opt.id).select().single();
+          if (!error && data) return data;
+        } else if (payload.group_id) {
+          const { data, error } = await supabase.from('options').insert([payload]).select().single();
+          if (!error && data) {
+            opt.id = data.id;
+            return data;
+          }
+        }
+      } catch (err) {
+        console.error('Erro saveOption Supabase:', err);
       }
     }
     const group = globalStore.optionGroups.find((g: OptionGroup) => g.id === groupId);
@@ -218,7 +290,7 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       const { error } = await supabase.from('options').delete().eq('id', optionId);
-      return !error;
+      if (!error) return true;
     }
     const group = globalStore.optionGroups.find((g: OptionGroup) => g.id === groupId);
     if (group && group.options) {
@@ -231,11 +303,15 @@ export const repository = {
   async getProducts(): Promise<Product[]> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      const { data } = await supabase
-        .from('products')
-        .select('*, category:categories(*)')
-        .order('display_order', { ascending: true });
-      if (data) return data;
+      try {
+        const { data } = await supabase
+          .from('products')
+          .select('*, category:categories(*)')
+          .order('display_order', { ascending: true });
+        if (data && data.length > 0) return data;
+      } catch (err) {
+        console.error('Erro getProducts Supabase:', err);
+      }
     }
     return globalStore.products;
   },
@@ -248,14 +324,62 @@ export const repository = {
   async saveProduct(prod: Partial<Product>): Promise<Product> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      if (prod.id) {
-        const { data } = await supabase.from('products').update(prod).eq('id', prod.id).select().single();
-        if (data) return data;
-      } else {
-        const { data } = await supabase.from('products').insert([prod]).select().single();
-        if (data) return data;
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+
+        const parsePrice = (v: any): number => {
+          if (typeof v === 'number') return v;
+          if (!v) return 0;
+          const clean = String(v).replace(',', '.').trim();
+          const n = parseFloat(clean);
+          return isNaN(n) ? 0 : n;
+        };
+
+        const dbPayload: any = {
+          name: prod.name || 'Novo Produto',
+          name_en: prod.name_en || null,
+          name_es: prod.name_es || null,
+          description: prod.description || null,
+          description_en: prod.description_en || null,
+          description_es: prod.description_es || null,
+          image_url: prod.image_url || null,
+          price: parsePrice(prod.price),
+          promotional_price: prod.promotional_price !== undefined && prod.promotional_price !== null && prod.promotional_price !== ('' as any)
+            ? parsePrice(prod.promotional_price)
+            : null,
+          is_promo_active: Boolean(prod.is_promo_active),
+          promo_start_at: prod.promo_start_at || null,
+          promo_end_at: prod.promo_end_at || null,
+          is_featured: Boolean(prod.is_featured),
+          is_bestseller: Boolean(prod.is_bestseller),
+          is_new: Boolean(prod.is_new),
+          is_available: prod.is_available !== undefined ? Boolean(prod.is_available) : true,
+          allow_notes: prod.allow_notes !== undefined ? Boolean(prod.allow_notes) : true,
+          display_order: prod.display_order !== undefined ? Number(prod.display_order) : 0,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (isUuid(prod.category_id)) {
+          dbPayload.category_id = prod.category_id;
+        }
+
+        if (prod.id && isUuid(prod.id)) {
+          const { data, error } = await supabase.from('products').update(dbPayload).eq('id', prod.id).select().single();
+          if (!error && data) {
+            return { ...data, option_groups: prod.option_groups || [] };
+          }
+        } else {
+          const { data, error } = await supabase.from('products').insert([dbPayload]).select().single();
+          if (!error && data) {
+            prod.id = data.id;
+            return { ...data, option_groups: prod.option_groups || [] };
+          }
+        }
+      } catch (err) {
+        console.error('Erro saveProduct Supabase:', err);
       }
     }
+
     if (prod.id) {
       const idx = globalStore.products.findIndex((p: Product) => p.id === prod.id);
       if (idx >= 0) {

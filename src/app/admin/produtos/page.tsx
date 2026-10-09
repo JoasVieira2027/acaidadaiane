@@ -193,6 +193,7 @@ export default function AdminProductsPage() {
         const newGroupId = data.group.id;
         // Se preencheu uma opção inicial, adiciona
         if (quickOptionName.trim()) {
+          const optPrice = parseFloat(String(quickOptionPrice).replace(',', '.').trim()) || 0;
           await fetch('/api/option-groups', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -201,7 +202,7 @@ export default function AdminProductsPage() {
               groupId: newGroupId,
               option: {
                 name: quickOptionName.trim(),
-                price: Number(quickOptionPrice) || 0,
+                price: optPrice,
                 is_available: true,
               },
             }),
@@ -211,7 +212,7 @@ export default function AdminProductsPage() {
         setSelectedGroupIds((prev) => [...prev, newGroupId]);
         setQuickGroupName('');
         setQuickOptionName('');
-        setQuickOptionPrice('0');
+        setQuickOptionPrice('0,00');
         setShowQuickGroupForm(false);
       }
     } catch (err) {
@@ -250,13 +251,21 @@ export default function AdminProductsPage() {
       // Se removeu imagem, limpa
       if (!imagePreview && !imageFile) imageUrl = '';
 
+      const parsePrice = (v: any): number => {
+        if (typeof v === 'number') return v;
+        if (!v && v !== 0) return 0;
+        const clean = String(v).replace(',', '.').trim();
+        const n = parseFloat(clean);
+        return isNaN(n) ? 0 : n;
+      };
+
       const payload = {
         product: {
           ...editingProduct,
           image_url: imageUrl,
-          price: Number(editingProduct.price),
-          promotional_price: editingProduct.promotional_price
-            ? Number(editingProduct.promotional_price)
+          price: parsePrice(editingProduct.price),
+          promotional_price: editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
+            ? parsePrice(editingProduct.promotional_price)
             : null,
         },
         option_group_ids: selectedGroupIds,
@@ -385,11 +394,11 @@ export default function AdminProductsPage() {
                     {p.category_name || categories.find(c => c.id === p.category_id)?.name || '—'}
                   </td>
                   <td style={{ padding: '0.9rem 1rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                    R$ {Number(p.price).toFixed(2)}
+                    R$ {Number(p.price || 0).toFixed(2).replace('.', ',')}
                   </td>
                   <td style={{ padding: '0.9rem 1rem' }}>
-                    {p.is_promo_active && p.promotional_price ? (
-                      <span className="badge badge-danger">R$ {Number(p.promotional_price).toFixed(2)}</span>
+                    {p.is_promo_active && p.promotional_price !== null && p.promotional_price !== undefined ? (
+                      <span className="badge badge-danger">R$ {Number(p.promotional_price).toFixed(2).replace('.', ',')}</span>
                     ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>—</span>}
                   </td>
                   <td style={{ padding: '0.9rem 1rem' }}>
@@ -493,9 +502,13 @@ export default function AdminProductsPage() {
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label">Preço Normal (R$) *</label>
                         <input
-                          type="number" step="0.10" required className="form-input"
+                          type="text"
+                          inputMode="decimal"
+                          required
+                          className="form-input"
                           value={editingProduct.price ?? ''}
-                          onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value as any })}
+                          placeholder="Ex: 15,90 ou 0,10"
                         />
                       </div>
                     </div>
@@ -522,10 +535,12 @@ export default function AdminProductsPage() {
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label">Preço Promocional (R$)</label>
                           <input
-                            type="number" step="0.10" className="form-input"
+                            type="text"
+                            inputMode="decimal"
+                            className="form-input"
                             value={editingProduct.promotional_price ?? ''}
-                            onChange={(e) => setEditingProduct({ ...editingProduct, promotional_price: parseFloat(e.target.value) || null })}
-                            placeholder="Valor menor que o preço normal"
+                            onChange={(e) => setEditingProduct({ ...editingProduct, promotional_price: e.target.value as any })}
+                            placeholder="Ex: 12,50 ou 0,10"
                           />
                         </div>
                       )}
@@ -741,10 +756,10 @@ export default function AdminProductsPage() {
                           <div>
                             <label className="form-label" style={{ fontSize: '0.75rem' }}>Preço Adic. (R$)</label>
                             <input
-                              type="number"
-                              step="0.50"
-                              min="0"
+                              type="text"
+                              inputMode="decimal"
                               className="form-input"
+                              placeholder="0,00"
                               value={quickOptionPrice}
                               onChange={(e) => setQuickOptionPrice(e.target.value)}
                             />
