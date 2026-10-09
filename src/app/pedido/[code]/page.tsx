@@ -16,6 +16,7 @@ import {
   Truck,
   CheckCircle,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/lib/types';
 import { generateWhatsAppOrderMessage, getWhatsAppShareUrl } from '@/lib/whatsapp';
@@ -40,6 +41,19 @@ export default function OrderTrackingPage() {
   const [storePhone, setStorePhone] = useState('5581999998888');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const autoOpenedWhatsAppRef = React.useRef(false);
+
+  // Busca telefone oficial nas configurações da loja
+  useEffect(() => {
+    fetch('/api/store-status', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.settings?.whatsapp_number) {
+          setStorePhone(d.settings.whatsapp_number);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchOrder = useCallback(async (isManual = false) => {
     if (!code) return;
@@ -65,12 +79,15 @@ export default function OrderTrackingPage() {
 
     fetchOrder();
 
-    // Atualiza status a cada 15 segundos
+    // Atualiza com maior frequência (5s) enquanto o Pix estiver pendente
+    const isWaitingPix = order?.payment_method === 'pix' && order?.payment_status === 'pending';
+    const intervalMs = isWaitingPix ? 5000 : 15000;
+
     const interval = setInterval(() => {
       fetchOrder();
-    }, 15000);
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [code, fetchOrder]);
+  }, [code, fetchOrder, order?.payment_method, order?.payment_status]);
 
   // Garante que o QR code seja gerado e exibido
   useEffect(() => {
@@ -140,6 +157,27 @@ export default function OrderTrackingPage() {
   const whatsAppMessage = generateWhatsAppOrderMessage(order);
   const whatsAppUrl = getWhatsAppShareUrl(storePhone, whatsAppMessage);
 
+  // Dispara envio automático para WhatsApp assim que o Pix for aprovado
+  useEffect(() => {
+    if (
+      order &&
+      order.payment_method === 'pix' &&
+      order.payment_status === 'paid' &&
+      !autoOpenedWhatsAppRef.current
+    ) {
+      autoOpenedWhatsAppRef.current = true;
+      const timer = setTimeout(() => {
+        try {
+          window.open(whatsAppUrl, '_blank');
+        } catch (e) {
+          console.warn('Bloqueio de popup ou erro ao abrir WhatsApp:', e);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [order?.payment_status, order?.payment_method, whatsAppUrl]);
+
+  const isPixPending = order.payment_method === 'pix' && order.payment_status !== 'paid';
   const currentStepIndex = statusSteps.findIndex((s) => s.key === order.order_status);
 
   return (
@@ -368,27 +406,69 @@ export default function OrderTrackingPage() {
             </div>
           )}
 
-          {/* Botão de Envio para WhatsApp Comercial */}
+          {/* Botão de Envio para WhatsApp Comercial - Liberado somente após Pix ser pago */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <a
-              href={whatsAppUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-primary"
-              style={{
-                width: '100%',
-                backgroundColor: '#16a34a',
-                padding: '0.85rem 1rem',
-                fontSize: '1rem',
-              }}
-            >
-              <Phone size={18} />
-              <span>Enviar Pedido no WhatsApp Comercial</span>
-              <ExternalLink size={16} />
-            </a>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'center' }}>
-              Encaminhe a mensagem pronta direto para nosso atendimento agilizar a separação e entrega.
-            </p>
+            {isPixPending ? (
+              <div
+                style={{
+                  width: '100%',
+                  backgroundColor: '#f3f4f6',
+                  color: '#6b7280',
+                  padding: '1rem',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem',
+                  border: '2px dashed #d1d5db',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.95rem', color: '#4b5563' }}>
+                  <Lock size={18} />
+                  <span>Aguardando Pagamento Pix para Liberar Envio no WhatsApp</span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: 0 }}>
+                  Assim que você pagar o Pix, o botão será liberado e abrirá automaticamente o WhatsApp comercial com os detalhes do seu pedido.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <a
+                  href={whatsAppUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#16a34a',
+                    padding: '0.95rem 1rem',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Phone size={18} />
+                  <span>
+                    {order.payment_method === 'pix'
+                      ? 'Enviar Pedido Confirmado no WhatsApp'
+                      : 'Enviar Pedido no WhatsApp Comercial'}
+                  </span>
+                  <ExternalLink size={16} />
+                </a>
+                <p style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '0.4rem', textAlign: 'center', fontWeight: 600 }}>
+                  {order.payment_method === 'pix'
+                    ? 'Pagamento Pix confirmado! Se o WhatsApp não tiver aberto sozinho, clique no botão acima.'
+                    : 'Encaminhe a mensagem pronta direto para nosso atendimento agilizar a separação e entrega.'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Itens do Pedido */}
