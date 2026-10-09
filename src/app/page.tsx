@@ -120,6 +120,7 @@ export default function HomePage() {
               Recife • Delivery & Balcão
             </span>
             <h1
+              className="hero-title"
               style={{
                 fontSize: '2.25rem',
                 fontWeight: 900,
@@ -176,6 +177,7 @@ export default function HomePage() {
           <div className="container">
             {/* Abas de Destaques Rápidos */}
             <div
+              className="filters-scroll"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -227,6 +229,7 @@ export default function HomePage() {
 
             {/* Pílulas de Categorias do Catálogo */}
             <div
+              className="filters-scroll"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -285,6 +288,7 @@ export default function HomePage() {
               </div>
             ) : (
               <div
+                className="products-grid"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
