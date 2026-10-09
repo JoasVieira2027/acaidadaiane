@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { repository } from '@/lib/data/repository';
 import { getPaymentStatus } from '@/lib/mercadopago';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,11 +42,24 @@ export async function POST(req: NextRequest) {
         console.log('[Webhook] paymentInfo:', paymentInfo);
 
         if (paymentInfo) {
-          // Encontra o pedido associado pelo ID da transação
-          const orders = await repository.getOrders();
-          const matchedOrder = orders.find(
-            (o) => o.payment_details?.transaction_id === String(effectiveId)
-          );
+          // Busca primeiro de forma rápida direta no Supabase
+          let matchedOrder: any = null;
+          const supabase = createSupabaseAdminClient();
+          if (supabase) {
+            const { data } = await supabase
+              .from('orders')
+              .select('*')
+              .contains('payment_details', { transaction_id: String(effectiveId) })
+              .maybeSingle();
+            if (data) matchedOrder = data;
+          }
+
+          if (!matchedOrder) {
+            const orders = await repository.getOrders();
+            matchedOrder = orders.find(
+              (o) => o.payment_details?.transaction_id === String(effectiveId)
+            );
+          }
 
           if (matchedOrder) {
             if (paymentInfo.status === 'approved') {
