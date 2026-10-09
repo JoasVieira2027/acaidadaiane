@@ -812,11 +812,23 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
+        // Primeiro busca os detalhes de pagamento existentes para não sobrescrever QR Code / copia e cola
+        const { data: existingOrder } = await supabase
+          .from('orders')
+          .select('payment_details')
+          .or(`id.eq.${orderId},order_code.eq.${orderId}`)
+          .maybeSingle();
+
+        const mergedDetails = {
+          ...(existingOrder?.payment_details || {}),
+          ...(details || {}),
+        };
+
         await supabase
           .from('orders')
           .update({
             payment_status: status,
-            payment_details: details || {},
+            payment_details: mergedDetails,
             updated_at: new Date().toISOString(),
           })
           .or(`id.eq.${orderId},order_code.eq.${orderId}`);

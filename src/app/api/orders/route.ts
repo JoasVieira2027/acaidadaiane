@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { repository } from '@/lib/data/repository';
 import { createPixPayment } from '@/lib/mercadopago';
-import { OrderItem, SelectedOption } from '@/lib/types';
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { OrderItem, SelectedOption, Product, OptionGroup } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,11 +55,37 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Recalcular e validar itens contra o banco de dados
-    const allProducts = await repository.getProducts();
-    const allOptionGroups = await repository.getOptionGroups();
+    // IMPORTANTE: Quando Supabase estiver configurado, os preços DEVEM vir do banco de dados.
+    // Nunca usamos dados mockados para validação de preços em pedidos reais.
+    let allProducts: Product[];
+    let allOptionGroups: OptionGroup[];
+
+    if (isSupabaseAdminConfigured()) {
+      const supabase = createSupabaseAdminClient()!;
+      const [prodRes, grpRes] = await Promise.all([
+        supabase.from('products').select('*').eq('is_available', true),
+        supabase.from('option_groups').select('*, options(*)').eq('is_active', true),
+      ]);
+
+      if (prodRes.error) {
+        console.error('Erro ao buscar produtos do Supabase para validação de pedido:', prodRes.error);
+        return NextResponse.json(
+          { success: false, message: 'Erro interno ao validar itens do pedido. Tente novamente.' },
+          { status: 500 }
+        );
+      }
+
+      allProducts = prodRes.data || [];
+      allOptionGroups = grpRes.data || [];
+    } else {
+      // Modo de desenvolvimento local sem Supabase configurado
+      allProducts = await repository.getProducts();
+      allOptionGroups = await repository.getOptionGroups();
+    }
+
     const optionMap = new Map();
     allOptionGroups.forEach((g) => {
-      g.options?.forEach((opt) => {
+      (g as any).options?.forEach((opt: any) => {
         optionMap.set(opt.id, { ...opt, group_name: g.name });
       });
     });
