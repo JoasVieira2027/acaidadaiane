@@ -20,69 +20,89 @@ export type PixPaymentResult = {
   errorMessage?: string;
 };
 
-const MP_ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN || '';
+export function getMpAccessToken(): string {
+  return (process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
+}
 
 /**
- * Cria cobrança Pix via API do Mercado Pago
+ * Verifica se as credenciais do Mercado Pago estão configuradas no ambiente
+ */
+export function isMercadoPagoConfigured(): boolean {
+  const token = getMpAccessToken();
+  return Boolean(
+    token &&
+    token.length > 20 &&
+    !token.includes('seu-access-token') &&
+    (token.startsWith('APP_USR-') || token.startsWith('TEST-'))
+  );
+}
+
+/**
+ * Cria cobrança Pix real via API oficial do Mercado Pago (v1/payments)
  */
 export async function createPixPayment(params: CreatePixPaymentParams): Promise<PixPaymentResult> {
-  const isMpConfigured = Boolean(
-    MP_ACCESS_TOKEN &&
-    !MP_ACCESS_TOKEN.includes('seu-access-token') &&
-    MP_ACCESS_TOKEN.startsWith('APP_USR-')
-  );
+  const token = getMpAccessToken();
+  const isConfigured = isMercadoPagoConfigured();
 
-  // Se o token real do Mercado Pago não estiver configurado no ambiente atual,
-  // geramos uma chave e QR code válidos para teste local / preview.
-  if (!isMpConfigured) {
-    const mockTxId = `SIM-PIX-${Date.now()}`;
-    const mockCopiaCola = `00020126580014br.gov.bcb.pix0136${params.orderId}520400005303986540${params.amount.toFixed(2)}5802BR5911Acai Daiane6008Recife62070503***6304`;
-    
-    let qrBase64 = '';
-    try {
-      qrBase64 = await QRCode.toDataURL(mockCopiaCola, { width: 300, margin: 2 });
-    } catch {
-      qrBase64 = '';
-    }
-
+  if (!isConfigured) {
     return {
-      success: true,
-      paymentId: mockTxId,
-      status: 'pending',
-      qrCode: mockCopiaCola,
-      qrCodeBase64: qrBase64,
+      success: false,
+      status: 'rejected',
+      errorMessage: 'Credencial do Mercado Pago (MERCADO_PAGO_ACCESS_TOKEN) não configurada ou inválida no servidor.',
     };
   }
 
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const notificationUrl = `${siteUrl}/api/payments/webhook`;
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').trim();
+    const isHttpsUrl = Boolean(siteUrl && siteUrl.startsWith('https://') && !siteUrl.includes('localhost'));
+    const notificationUrl = isHttpsUrl ? `${siteUrl}/api/payments/webhook` : undefined;
+
+    // Garante email de formato válido para o payer
+    const customerEmail = (params.customerEmail || '').trim();
+    const payerEmail = customerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)
+      ? customerEmail
+      : `cliente_${params.orderCode.toLowerCase().replace(/[^a-z0-9]/g, '')}@gmail.com`;
 
     // Separa nome e sobrenome
-    const nameParts = params.customerName.trim().split(' ');
+    const nameParts = (params.customerName || 'Cliente').trim().split(/\s+/);
     const firstName = nameParts[0] || 'Cliente';
-    const lastName = nameParts.slice(1).join(' ') || 'Açaí';
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Consumidor';
 
-    const payload = {
+    // Limpa telefone se fornecido
+    const cleanPhone = (params.customerPhone || '').replace(/\D/g, '');
+
+    const payload: any = {
       transaction_amount: Number(params.amount.toFixed(2)),
-      description: params.description.substring(0, 100),
+      description: (params.description || `Pedido ${params.orderCode} - Açaí Daiane`).substring(0, 100),
       payment_method_id: 'pix',
-      notification_url: notificationUrl,
       external_reference: params.orderCode,
       payer: {
-        email: params.customerEmail || `pedido_${params.orderCode.toLowerCase()}@acaidaiane.com.br`,
+        email: payerEmail,
         first_name: firstName,
         last_name: lastName,
       },
+      date_of_expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     };
 
-    const idempotencyKey = `order-${params.orderId}-${Date.now()}`;
+    if (cleanPhone.length >= 10) {
+      payload.payer.phone = {
+        area_code: cleanPhone.substring(0, 2),
+        number: cleanPhone.substring(2),
+      };
+    }
+
+    if (notificationUrl) {
+      payload.notification_url = notificationUrl;
+    }
+
+    // Idempotência determinística por pedido para evitar cobranças duplicadas
+    const idempotencyKey = `pix-${params.orderCode}-${params.orderId}`;
 
     const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         'X-Idempotency-Key': idempotencyKey,
       },
       body: JSON.stringify(payload),
@@ -91,20 +111,34 @@ export async function createPixPayment(params: CreatePixPaymentParams): Promise<
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro Mercado Pago Pix API:', data);
+      const errorMsg =
+        data.message ||
+        (Array.isArray(data.cause) && data.cause[0]?.description) ||
+        'Erro ao gerar Pix no Mercado Pago.';
+      console.error('Erro Mercado Pago Pix API:', response.status, errorMsg, data);
       return {
         success: false,
         status: 'rejected',
-        errorMessage: data.message || 'Erro ao gerar Pix no provedor de pagamento.',
+        errorMessage: errorMsg,
       };
     }
 
     const txData = data.point_of_interaction?.transaction_data;
     const qrCode = txData?.qr_code || '';
-    let qrCodeBase64 = txData?.qr_code_base64 ? `data:image/png;base64,${txData.qr_code_base64}` : '';
+    let qrCodeBase64 = txData?.qr_code_base64 || '';
 
+    // Garante prefixo data:image/png;base64 se vier sem prefixo
+    if (qrCodeBase64 && !qrCodeBase64.startsWith('data:')) {
+      qrCodeBase64 = `data:image/png;base64,${qrCodeBase64}`;
+    }
+
+    // Fallback: se o MP retornar apenas o qrCode string (copia e cola), gera a imagem base64
     if (!qrCodeBase64 && qrCode) {
-      qrCodeBase64 = await QRCode.toDataURL(qrCode, { width: 300, margin: 2 });
+      try {
+        qrCodeBase64 = await QRCode.toDataURL(qrCode, { width: 300, margin: 2 });
+      } catch (err) {
+        console.error('Erro ao gerar QRCode base64 via lib:', err);
+      }
     }
 
     let status: PixPaymentResult['status'] = 'pending';
@@ -121,11 +155,11 @@ export async function createPixPayment(params: CreatePixPaymentParams): Promise<
       ticketUrl: txData?.ticket_url,
     };
   } catch (error: any) {
-    console.error('Falha na comunicação com Mercado Pago:', error);
+    console.error('Falha de conexão com Mercado Pago:', error);
     return {
       success: false,
       status: 'rejected',
-      errorMessage: error.message || 'Falha de comunicação com o Mercado Pago.',
+      errorMessage: error.message || 'Falha de comunicação com o servidor do Mercado Pago.',
     };
   }
 }
@@ -138,15 +172,17 @@ export async function getPaymentStatus(paymentId: string): Promise<{
   statusDetail?: string;
   dateApproved?: string;
 } | null> {
-  if (!MP_ACCESS_TOKEN || paymentId.startsWith('SIM-PIX-')) {
+  const token = getMpAccessToken();
+  if (!token || paymentId.startsWith('SIM-PIX-')) {
     return { status: 'pending' };
   }
 
   try {
     const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: {
-        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
       },
+      cache: 'no-store',
     });
 
     if (!response.ok) return null;

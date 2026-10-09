@@ -27,7 +27,7 @@ export default function AdminDashboardPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const fetchStatus = () => {
-    fetch('/api/store-status')
+    fetch('/api/store-status', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {

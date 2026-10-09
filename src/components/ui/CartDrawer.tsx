@@ -39,8 +39,7 @@ export function CartDrawer() {
   const [storeStatus, setStoreStatus] = useState<StoreCurrentStatus | null>(null);
 
   useEffect(() => {
-    // Carregar bairros ativos
-    fetch('/api/store-status')
+    fetch('/api/store-status', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -49,10 +48,19 @@ export function CartDrawer() {
       })
       .catch(() => {});
 
-    // Carregar bairros via fetch local se houver ou dados iniciais
-    fetch('/api/store-status')
-      .then(() => {
-        // Obter bairros da API ou inicializar
+    // Carregar bairros atualizados do Supabase/API
+    fetch('/api/neighborhoods', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.neighborhoods)) {
+          setNeighborhoods(data.neighborhoods.filter((n: Neighborhood) => n.is_active));
+        } else {
+          import('@/lib/data/mockData').then((mod) => {
+            setNeighborhoods(mod.initialNeighborhoods.filter((n) => n.is_active));
+          });
+        }
+      })
+      .catch(() => {
         import('@/lib/data/mockData').then((mod) => {
           setNeighborhoods(mod.initialNeighborhoods.filter((n) => n.is_active));
         });

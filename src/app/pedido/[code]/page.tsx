@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
+import QRCode from 'qrcode';
 import {
   CheckCircle2,
   Clock,
@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Truck,
   CheckCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/lib/types';
 import { generateWhatsAppOrderMessage, getWhatsAppShareUrl } from '@/lib/whatsapp';
@@ -37,28 +38,65 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [storePhone, setStorePhone] = useState('5581999998888');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+
+  const fetchOrder = useCallback(async (isManual = false) => {
+    if (!code) return;
+    if (isManual) setIsCheckingPayment(true);
+    try {
+      const res = await fetch(`/api/orders/${code}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success && data.order) {
+        setOrder(data.order);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar pedido:', err);
+    } finally {
+      setLoading(false);
+      if (isManual) {
+        setTimeout(() => setIsCheckingPayment(false), 500);
+      }
+    }
+  }, [code]);
 
   useEffect(() => {
     if (!code) return;
 
-    const fetchOrder = () => {
-      fetch(`/api/orders/${code}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.order) {
-            setOrder(data.order);
-          }
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    };
-
     fetchOrder();
 
     // Atualiza status a cada 15 segundos
-    const interval = setInterval(fetchOrder, 15000);
+    const interval = setInterval(() => {
+      fetchOrder();
+    }, 15000);
     return () => clearInterval(interval);
-  }, [code]);
+  }, [code, fetchOrder]);
+
+  // Garante que o QR code seja gerado e exibido
+  useEffect(() => {
+    if (!order?.payment_details) return;
+
+    const base64 = order.payment_details.qr_code_base64;
+    const copiaECola = order.payment_details.pix_copia_e_cola;
+
+    if (base64 && base64.length > 20) {
+      const formatted = base64.startsWith('data:image')
+        ? base64
+        : `data:image/png;base64,${base64}`;
+      setQrCodeDataUrl(formatted);
+    } else if (copiaECola) {
+      QRCode.toDataURL(copiaECola, {
+        margin: 1,
+        width: 200,
+        color: {
+          dark: '#1e082b',
+          light: '#ffffff',
+        },
+      })
+        .then((url) => setQrCodeDataUrl(url))
+        .catch((err) => console.error('Erro ao gerar QR code local:', err));
+    }
+  }, [order?.payment_details]);
 
   const handleCopyPix = () => {
     if (order?.payment_details?.pix_copia_e_cola) {
@@ -219,47 +257,96 @@ export default function OrderTrackingPage() {
               </div>
 
               {order.payment_status === 'paid' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)' }}>
-                  <CheckCircle2 size={18} />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                    Seu pagamento foi confirmado pelo provedor de pagamento com sucesso!
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#16a34a', backgroundColor: '#dcfce7', padding: '0.9rem', borderRadius: 'var(--radius-sm)' }}>
+                  <CheckCircle2 size={22} />
+                  <div>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, display: 'block' }}>
+                      Pagamento Pix Confirmado com Sucesso!
+                    </span>
+                    <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                      O pedido já está liberado e foi encaminhado para a equipe de produção.
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Valor a Pagar via Pix:</span>
+                      <strong style={{ fontSize: '1.25rem', color: 'var(--brand-primary)' }}>R$ {order.total_amount.toFixed(2)}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fetchOrder(true)}
+                      disabled={isCheckingPayment}
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
+                    >
+                      <RefreshCw size={14} className={isCheckingPayment ? 'animate-spin' : ''} />
+                      <span>{isCheckingPayment ? 'Verificando...' : 'Verificar Pagamento Agora'}</span>
+                    </button>
+                  </div>
+
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                    Abra o app do seu banco, escolha a opção <strong>Pagar via Pix</strong> e escaneie o QR Code ou utilize o código Copia e Cola.
+                    Abra o app do seu banco, escolha <strong>Pagar via Pix</strong> e escaneie o QR Code ou utilize o código <strong>Copia e Cola</strong> abaixo:
                   </p>
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center' }}>
-                    {order.payment_details?.qr_code_base64 && (
+                    {qrCodeDataUrl ? (
                       <div
                         style={{
                           backgroundColor: '#ffffff',
-                          padding: '0.5rem',
+                          padding: '0.6rem',
                           borderRadius: 'var(--radius-md)',
                           display: 'inline-block',
                           border: '1px solid var(--border-color)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                         }}
                       >
-                        <Image
-                          src={order.payment_details.qr_code_base64}
-                          alt="QR Code Pix"
-                          width={160}
-                          height={160}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={qrCodeDataUrl}
+                          alt="QR Code Pix Oficial"
+                          style={{
+                            width: '180px',
+                            height: '180px',
+                            display: 'block',
+                            borderRadius: '4px',
+                            imageRendering: 'pixelated',
+                          }}
                         />
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          width: '180px',
+                          height: '180px',
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: 'var(--radius-md)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '1rem',
+                          textAlign: 'center',
+                          fontSize: '0.75rem',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        Gerando QR Code...
                       </div>
                     )}
 
                     <div style={{ flex: 1, minWidth: '220px' }}>
-                      <label className="form-label">Código Pix Copia e Cola</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>
+                        Código Pix Copia e Cola
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                         <input
                           type="text"
                           readOnly
                           value={order.payment_details?.pix_copia_e_cola || ''}
                           className="form-input"
-                          style={{ fontSize: '0.75rem' }}
+                          style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}
                         />
                         <button
                           type="button"
@@ -271,6 +358,9 @@ export default function OrderTrackingPage() {
                           <span>{copied ? 'Copiado!' : 'Copiar'}</span>
                         </button>
                       </div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        O pagamento é verificado automaticamente a cada 15 segundos. Ao aprovar, o status atualiza sozinho nesta tela.
+                      </p>
                     </div>
                   </div>
                 </div>

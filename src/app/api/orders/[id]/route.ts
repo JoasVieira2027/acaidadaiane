@@ -3,6 +3,13 @@ import { repository } from '@/lib/data/repository';
 import { getPaymentStatus } from '@/lib/mercadopago';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ success: true, order }, { headers: noStoreHeaders });
   } catch (error: any) {
     console.error('Erro ao buscar pedido:', error);
     return NextResponse.json({ success: false, message: 'Erro no servidor' }, { status: 500 });
@@ -71,7 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       order.payment_status = payment_status;
     }
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({ success: true, order }, { headers: noStoreHeaders });
   } catch (error: any) {
     console.error('Erro ao atualizar pedido:', error);
     return NextResponse.json({ success: false, message: 'Erro no servidor' }, { status: 500 });

@@ -111,8 +111,8 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
-        const { data } = await supabase.from('categories').select('*').order('display_order', { ascending: true });
-        if (data && data.length > 0) return data;
+        const { data, error } = await supabase.from('categories').select('*').order('display_order', { ascending: true });
+        if (!error && data) return data;
       } catch (err) {
         console.error('Erro getCategories Supabase:', err);
       }
@@ -183,11 +183,11 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('option_groups')
           .select('*, options(*)')
           .order('display_order', { ascending: true });
-        if (data && data.length > 0) return data;
+        if (!error && data) return data;
       } catch (err) {
         console.error('Erro getOptionGroups Supabase:', err);
       }
@@ -337,11 +337,11 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('products')
           .select('*, category:categories(*)')
           .order('display_order', { ascending: true });
-        if (data && data.length > 0) return data;
+        if (!error && data) return data;
       } catch (err) {
         console.error('Erro getProducts Supabase:', err);
       }
@@ -453,8 +453,12 @@ export const repository = {
   async getNeighborhoods(): Promise<Neighborhood[]> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      const { data } = await supabase.from('neighborhoods').select('*').order('display_order', { ascending: true });
-      if (data) return data;
+      try {
+        const { data, error } = await supabase.from('neighborhoods').select('*').order('display_order', { ascending: true });
+        if (!error && data) return data;
+      } catch (err) {
+        console.error('Erro getNeighborhoods Supabase:', err);
+      }
     }
     return globalStore.neighborhoods;
   },
@@ -462,12 +466,30 @@ export const repository = {
   async saveNeighborhood(n: Partial<Neighborhood>): Promise<Neighborhood> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      if (n.id) {
-        const { data } = await supabase.from('neighborhoods').update(n).eq('id', n.id).select().single();
-        if (data) return data;
-      } else {
-        const { data } = await supabase.from('neighborhoods').insert([n]).select().single();
-        if (data) return data;
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        const payload: any = {
+          name: n.name || 'Novo Bairro',
+          delivery_fee: Number(n.delivery_fee || 0),
+          min_order_amount: Number(n.min_order_amount || 0),
+          free_delivery_threshold: n.free_delivery_threshold != null && (n.free_delivery_threshold as any) !== '' ? Number(n.free_delivery_threshold) : null,
+          is_active: n.is_active !== undefined ? Boolean(n.is_active) : true,
+          display_order: n.display_order !== undefined ? Number(n.display_order) : 0,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (n.id && isUuid(n.id)) {
+          const { data, error } = await supabase.from('neighborhoods').update(payload).eq('id', n.id).select().single();
+          if (!error && data) return data;
+        } else {
+          const { data, error } = await supabase.from('neighborhoods').insert([payload]).select().single();
+          if (!error && data) {
+            n.id = data.id;
+            return data;
+          }
+        }
+      } catch (err) {
+        console.error('Erro saveNeighborhood Supabase:', err);
       }
     }
     if (n.id) {
@@ -480,14 +502,24 @@ export const repository = {
     const newNb: Neighborhood = {
       id: `nb-${Date.now()}`,
       name: n.name || 'Novo Bairro',
-      delivery_fee: n.delivery_fee || 0,
-      min_order_amount: n.min_order_amount || 0,
+      delivery_fee: Number(n.delivery_fee || 0),
+      min_order_amount: Number(n.min_order_amount || 0),
       is_active: n.is_active ?? true,
       display_order: n.display_order ?? globalStore.neighborhoods.length + 1,
       ...n,
     };
     globalStore.neighborhoods.push(newNb);
     return newNb;
+  },
+
+  async deleteNeighborhood(id: string): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      const { error } = await supabase.from('neighborhoods').delete().eq('id', id);
+      if (!error) return true;
+    }
+    globalStore.neighborhoods = globalStore.neighborhoods.filter((nb: Neighborhood) => nb.id !== id);
+    return true;
   },
 
   // HORÁRIOS E FUNCIONAMENTO
@@ -552,34 +584,92 @@ export const repository = {
 
   // CUPONS
   async getCoupons(): Promise<Coupon[]> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+        if (data && data.length > 0) return data;
+      } catch (err) {
+        console.error('Erro getCoupons Supabase:', err);
+      }
+    }
     return globalStore.coupons;
   },
 
   async getCouponByCode(code: string): Promise<Coupon | null> {
     const cleanCode = code.trim().toUpperCase();
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const { data } = await supabase.from('coupons').select('*').eq('code', cleanCode).maybeSingle();
+        if (data) return data;
+      } catch (err) {
+        console.error('Erro getCouponByCode Supabase:', err);
+      }
+    }
     return globalStore.coupons.find((c: Coupon) => c.code.toUpperCase() === cleanCode) || null;
   },
 
   async saveCoupon(cp: Partial<Coupon>): Promise<Coupon> {
+    const cleanCode = (cp.code || 'NOVO10').toUpperCase().trim();
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        const payload: any = {
+          code: cleanCode,
+          discount_type: cp.discount_type || 'percentage',
+          discount_value: Number(cp.discount_value || 0),
+          min_order_amount: Number(cp.min_order_amount || 0),
+          max_uses: cp.max_uses ? Number(cp.max_uses) : null,
+          is_active: cp.is_active !== undefined ? Boolean(cp.is_active) : true,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (cp.id && isUuid(cp.id)) {
+          const { data, error } = await supabase.from('coupons').update(payload).eq('id', cp.id).select().single();
+          if (!error && data) return data;
+        } else {
+          const { data, error } = await supabase.from('coupons').insert([payload]).select().single();
+          if (!error && data) {
+            cp.id = data.id;
+            return data;
+          }
+        }
+      } catch (err) {
+        console.error('Erro saveCoupon Supabase:', err);
+      }
+    }
+
     if (cp.id) {
       const idx = globalStore.coupons.findIndex((c: Coupon) => c.id === cp.id);
       if (idx >= 0) {
-        globalStore.coupons[idx] = { ...globalStore.coupons[idx], ...cp };
+        globalStore.coupons[idx] = { ...globalStore.coupons[idx], ...cp, code: cleanCode };
         return globalStore.coupons[idx];
       }
     }
     const newCp: Coupon = {
       id: `cp-${Date.now()}`,
-      code: (cp.code || 'NOVO10').toUpperCase(),
+      code: cleanCode,
       discount_type: cp.discount_type || 'percentage',
-      discount_value: cp.discount_value || 10,
-      min_order_amount: cp.min_order_amount || 0,
+      discount_value: Number(cp.discount_value || 10),
+      min_order_amount: Number(cp.min_order_amount || 0),
       used_count: 0,
       is_active: cp.is_active ?? true,
       ...cp,
     };
     globalStore.coupons.push(newCp);
     return newCp;
+  },
+
+  async deleteCoupon(id: string): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      const { error } = await supabase.from('coupons').delete().eq('id', id);
+      if (!error) return true;
+    }
+    globalStore.coupons = globalStore.coupons.filter((c: Coupon) => c.id !== id);
+    return true;
   },
 
   // PEDIDOS

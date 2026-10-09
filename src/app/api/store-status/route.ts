@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
 
 export async function GET() {
   try {
@@ -9,12 +17,15 @@ export async function GET() {
     const settings = await repository.getSettings();
     const hours = await repository.getBusinessHours();
 
-    return NextResponse.json({
-      success: true,
-      status,
-      settings,
-      hours,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        status,
+        settings,
+        hours,
+      },
+      { headers: noStoreHeaders }
+    );
   } catch (error: any) {
     console.error('Erro na rota GET de store-status:', error);
     return NextResponse.json(
@@ -54,13 +65,23 @@ export async function POST(request: Request) {
     const currentSettings = await repository.getSettings();
     const currentHours = await repository.getBusinessHours();
 
-    return NextResponse.json({
-      success: true,
-      status: updatedStatus,
-      settings: currentSettings,
-      hours: currentHours,
-      message: 'Status e configurações da loja atualizados com sucesso',
-    });
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/admin', 'page');
+      revalidatePath('/admin/horarios', 'page');
+      revalidatePath('/admin/configuracoes', 'page');
+    } catch {}
+
+    return NextResponse.json(
+      {
+        success: true,
+        status: updatedStatus,
+        settings: currentSettings,
+        hours: currentHours,
+        message: 'Status e configurações da loja atualizados com sucesso',
+      },
+      { headers: noStoreHeaders }
+    );
   } catch (error: any) {
     console.error('Erro na rota POST de store-status:', error);
     return NextResponse.json(

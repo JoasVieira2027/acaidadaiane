@@ -243,20 +243,30 @@ export async function POST(req: NextRequest) {
         customerPhone: createdOrder.customer_phone,
       });
 
-      if (pixResult.success) {
-        await repository.updatePaymentStatus(createdOrder.id, 'pending', {
-          transaction_id: pixResult.paymentId,
-          pix_copia_e_cola: pixResult.qrCode,
-          qr_code_base64: pixResult.qrCodeBase64,
-          payment_link: pixResult.ticketUrl,
-        });
-        createdOrder.payment_details = {
-          transaction_id: pixResult.paymentId,
-          pix_copia_e_cola: pixResult.qrCode,
-          qr_code_base64: pixResult.qrCodeBase64,
-          payment_link: pixResult.ticketUrl,
-        };
+      if (!pixResult.success) {
+        console.error('Falha ao gerar cobrança Pix:', pixResult.errorMessage);
+        await repository.updatePaymentStatus(createdOrder.id, 'failed');
+        return NextResponse.json(
+          {
+            success: false,
+            message: pixResult.errorMessage || 'Não foi possível gerar a cobrança Pix no momento. Verifique as credenciais ou selecione outra forma de pagamento.',
+          },
+          { status: 400 }
+        );
       }
+
+      await repository.updatePaymentStatus(createdOrder.id, 'pending', {
+        transaction_id: pixResult.paymentId,
+        pix_copia_e_cola: pixResult.qrCode,
+        qr_code_base64: pixResult.qrCodeBase64,
+        payment_link: pixResult.ticketUrl,
+      });
+      createdOrder.payment_details = {
+        transaction_id: pixResult.paymentId,
+        pix_copia_e_cola: pixResult.qrCode,
+        qr_code_base64: pixResult.qrCodeBase64,
+        payment_link: pixResult.ticketUrl,
+      };
     }
 
     return NextResponse.json({
@@ -268,3 +278,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: 'Erro interno ao processar pedido.' }, { status: 500 });
   }
 }
+
+export async function GET() {
+  try {
+    const orders = await repository.getOrders();
+    return NextResponse.json({
+      success: true,
+      orders,
+    });
+  } catch (error: any) {
+    console.error('GET /api/orders error:', error);
+    return NextResponse.json({ success: false, message: 'Erro ao listar pedidos.' }, { status: 500 });
+  }
+}
+

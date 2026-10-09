@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
 
 // GET /api/option-groups — lista todos os grupos com opções
 export async function GET() {
   try {
     const groups = await repository.getOptionGroups();
-    return NextResponse.json({ success: true, optionGroups: groups });
+    return NextResponse.json({ success: true, optionGroups: groups }, { headers: noStoreHeaders });
   } catch (error: any) {
     console.error('GET /api/option-groups error:', error);
     return NextResponse.json({ success: false, message: 'Erro ao carregar complementos.' }, { status: 500 });
@@ -15,8 +23,6 @@ export async function GET() {
 }
 
 // POST /api/option-groups — cria ou atualiza um grupo ou opção
-// Se vier `action: 'save-option'`, salva uma opção dentro de um grupo.
-// Caso contrário, salva o grupo.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -31,7 +37,11 @@ export async function POST(req: NextRequest) {
         price: parseFloat(String(option.price || 0).replace(',', '.')) || 0,
         max_quantity_per_item: Number(option.max_quantity_per_item || 1),
       });
-      return NextResponse.json({ success: true, option: savedOption });
+      try {
+        revalidatePath('/', 'page');
+        revalidatePath('/admin/complementos', 'page');
+      } catch {}
+      return NextResponse.json({ success: true, option: savedOption }, { headers: noStoreHeaders });
     }
 
     if (body.action === 'delete-option') {
@@ -40,7 +50,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, message: 'IDs obrigatórios.' }, { status: 400 });
       }
       await repository.deleteOption(groupId, optionId);
-      return NextResponse.json({ success: true });
+      try {
+        revalidatePath('/', 'page');
+        revalidatePath('/admin/complementos', 'page');
+      } catch {}
+      return NextResponse.json({ success: true }, { headers: noStoreHeaders });
     }
 
     // Salvar grupo
@@ -56,7 +70,12 @@ export async function POST(req: NextRequest) {
       display_order: Number(group.display_order || 1),
     });
 
-    return NextResponse.json({ success: true, group: savedGroup });
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/admin/complementos', 'page');
+    } catch {}
+
+    return NextResponse.json({ success: true, group: savedGroup }, { headers: noStoreHeaders });
   } catch (error: any) {
     console.error('POST /api/option-groups error:', error);
     return NextResponse.json({ success: false, message: 'Erro ao salvar complemento.' }, { status: 500 });
@@ -73,7 +92,12 @@ export async function DELETE(req: NextRequest) {
     }
 
     await repository.deleteOptionGroup(id);
-    return NextResponse.json({ success: true });
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/admin/complementos', 'page');
+    } catch {}
+
+    return NextResponse.json({ success: true }, { headers: noStoreHeaders });
   } catch (error: any) {
     console.error('DELETE /api/option-groups error:', error);
     return NextResponse.json({ success: false, message: 'Erro ao remover grupo.' }, { status: 500 });

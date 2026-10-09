@@ -14,7 +14,7 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     setIsLoading(true);
-    fetch('/api/store-status')
+    fetch('/api/store-status', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.settings) {

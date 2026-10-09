@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
 
 // GET /api/products — lista todos os produtos com grupos de complementos
 export async function GET() {
@@ -48,7 +56,10 @@ export async function GET() {
       return { ...p, option_groups: groups, category_name: category?.name || '' };
     });
 
-    return NextResponse.json({ success: true, products: productsWithGroups, categories, optionGroups });
+    return NextResponse.json(
+      { success: true, products: productsWithGroups, categories, optionGroups },
+      { headers: noStoreHeaders }
+    );
   } catch (error: any) {
     console.error('GET /api/products:', error);
     return NextResponse.json({ success: false, message: 'Erro ao buscar produtos.' }, { status: 500 });
@@ -100,7 +111,6 @@ export async function POST(req: NextRequest) {
         await supabase.from('product_option_groups').insert(rows);
       }
     } else if (Array.isArray(option_group_ids)) {
-      // In-memory fallback
       const allOptionGroups = await repository.getOptionGroups();
       const matchedGroups = option_group_ids
         .map((gid: string, idx: number) => {
@@ -114,7 +124,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, product: saved });
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/admin/produtos', 'page');
+    } catch {}
+
+    return NextResponse.json({ success: true, product: saved }, { headers: noStoreHeaders });
   } catch (error: any) {
     console.error('POST /api/products:', error);
     return NextResponse.json({ success: false, message: 'Erro ao salvar produto.' }, { status: 500 });
@@ -129,7 +144,13 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ success: false, message: 'ID obrigatório.' }, { status: 400 });
 
     await repository.deleteProduct(id);
-    return NextResponse.json({ success: true });
+
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/admin/produtos', 'page');
+    } catch {}
+
+    return NextResponse.json({ success: true }, { headers: noStoreHeaders });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: 'Erro ao excluir produto.' }, { status: 500 });
   }

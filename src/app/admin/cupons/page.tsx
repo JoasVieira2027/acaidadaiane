@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Tag } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit, Trash2, Tag, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Coupon } from '@/lib/types';
 import { initialCoupons } from '@/lib/data/mockData';
 
@@ -9,47 +9,135 @@ export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons);
   const [editingCoupon, setEditingCoupon] = useState<Partial<Coupon> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const handleToggleActive = (id: string) => {
-    setCoupons((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, is_active: !c.is_active } : c))
-    );
+  const loadCoupons = useCallback(async () => {
+    try {
+      const res = await fetch('/api/coupons', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.coupons)) {
+        setCoupons(data.coupons);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar cupons:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCoupons();
+  }, [loadCoupons]);
+
+  const showFeedback = (text: string, type: 'success' | 'error' = 'success') => {
+    setFeedbackMsg({ type, text });
+    setTimeout(() => setFeedbackMsg(null), 3500);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Deseja realmente remover este cupom?')) {
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
+  const handleToggleActive = async (id: string) => {
+    const target = coupons.find((c) => c.id === id);
+    if (!target) return;
+    const updated = { ...target, is_active: !target.is_active };
+
+    setCoupons((prev) => prev.map((c) => (c.id === id ? updated : c)));
+
+    try {
+      const res = await fetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon: updated }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        showFeedback('Erro ao atualizar status do cupom', 'error');
+        await loadCoupons();
+      }
+    } catch {
+      showFeedback('Erro de conexão ao atualizar cupom', 'error');
+      await loadCoupons();
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente remover este cupom?')) return;
+    setCoupons((prev) => prev.filter((c) => c.id !== id));
+    try {
+      const res = await fetch(`/api/coupons?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showFeedback('Cupom excluído com sucesso!');
+      } else {
+        showFeedback('Erro ao excluir cupom', 'error');
+        await loadCoupons();
+      }
+    } catch {
+      showFeedback('Erro de conexão ao excluir cupom', 'error');
+      await loadCoupons();
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCoupon?.code || editingCoupon.discount_value === undefined) return;
 
-    if (editingCoupon.id) {
-      setCoupons((prev) =>
-        prev.map((c) => (c.id === editingCoupon.id ? ({ ...c, ...editingCoupon } as Coupon) : c))
-      );
-    } else {
-      const newCp: Coupon = {
-        id: `cp-${Date.now()}`,
-        code: editingCoupon.code.toUpperCase().trim(),
-        discount_type: editingCoupon.discount_type || 'percentage',
-        discount_value: Number(editingCoupon.discount_value),
-        min_order_amount: Number(editingCoupon.min_order_amount || 0),
-        max_uses: editingCoupon.max_uses ? Number(editingCoupon.max_uses) : null,
-        used_count: 0,
-        is_active: editingCoupon.is_active ?? true,
-      };
-      setCoupons((prev) => [...prev, newCp]);
-    }
+    setIsSaving(true);
+    const newCp: Coupon = {
+      id: editingCoupon.id || `cp-${Date.now()}`,
+      code: editingCoupon.code.toUpperCase().trim(),
+      discount_type: editingCoupon.discount_type || 'percentage',
+      discount_value: Number(editingCoupon.discount_value),
+      min_order_amount: Number(editingCoupon.min_order_amount || 0),
+      max_uses: editingCoupon.max_uses ? Number(editingCoupon.max_uses) : null,
+      used_count: editingCoupon.used_count || 0,
+      is_active: editingCoupon.is_active ?? true,
+    };
 
-    setIsModalOpen(false);
-    setEditingCoupon(null);
+    try {
+      const res = await fetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon: newCp }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showFeedback('Cupom salvo com sucesso!');
+        setIsModalOpen(false);
+        setEditingCoupon(null);
+        await loadCoupons();
+      } else {
+        showFeedback(data.message || 'Erro ao salvar cupom', 'error');
+      }
+    } catch {
+      showFeedback('Erro de conexão ao salvar cupom', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1000px', width: '100%' }}>
+      {feedbackMsg && (
+        <div
+          style={{
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1rem',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: feedbackMsg.type === 'success' ? '#ecfdf5' : '#fef2f2',
+            border: `1px solid ${feedbackMsg.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+            color: feedbackMsg.type === 'success' ? '#065f46' : '#991b1b',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            fontSize: '0.9rem',
+          }}
+        >
+          {feedbackMsg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span>{feedbackMsg.text}</span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Cupons de Desconto</h1>
@@ -218,11 +306,12 @@ export default function AdminCouponsPage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary" disabled={isSaving}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Salvar Cupom
+                <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                  {isSaving && <Loader2 size={16} className="animate-spin" />}
+                  <span>{isSaving ? 'Salvando...' : 'Salvar Cupom'}</span>
                 </button>
               </div>
             </form>

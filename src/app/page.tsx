@@ -29,10 +29,10 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/products')
+      fetch('/api/products', { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+          if (data.success && Array.isArray(data.products)) {
             setProducts(data.products);
             if (Array.isArray(data.categories) && data.categories.length > 0) {
               setCategories(data.categories);
@@ -50,10 +50,10 @@ export default function HomePage() {
             setCategories(mod.initialCategories);
           });
         }),
-      fetch('/api/store-status')
+      fetch('/api/store-status', { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
-          if (data.success) {
+          if (data.success && data.status) {
             setStoreStatus(data.status);
           }
         })

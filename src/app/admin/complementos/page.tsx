@@ -20,7 +20,7 @@ export default function AdminComplementsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch('/api/option-groups');
+      const res = await fetch('/api/option-groups', { cache: 'no-store' });
       const data = await res.json();
       if (data.success && Array.isArray(data.optionGroups)) {
         setOptionGroups(data.optionGroups);

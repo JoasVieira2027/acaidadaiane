@@ -15,7 +15,7 @@ export default function OrderPrintPage() {
   const [printFormat, setPrintFormat] = useState<'80mm' | '58mm' | 'a4'>('80mm');
 
   useEffect(() => {
-    fetch(`/api/orders/${id}`)
+    fetch(`/api/orders/${id}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.order) {
