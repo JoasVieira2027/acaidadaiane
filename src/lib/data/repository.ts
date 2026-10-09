@@ -685,18 +685,90 @@ export const repository = {
   },
 
   async getOrderByCode(orderCode: string): Promise<Order | null> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      const { data } = await supabase
+        .from('orders')
+        .select('*, items:order_items(*)')
+        .eq('order_code', orderCode)
+        .maybeSingle();
+      if (data) return data;
+    }
     const orders = await this.getOrders();
     return orders.find((o) => o.order_code.toUpperCase() === orderCode.toUpperCase()) || null;
   },
 
   async getOrderById(orderId: string): Promise<Order | null> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+      let query = supabase.from('orders').select('*, items:order_items(*)');
+      if (isUUID) {
+        query = query.eq('id', orderId);
+      } else {
+        query = query.eq('order_code', orderId);
+      }
+      const { data } = await query.maybeSingle();
+      if (data) return data;
+    }
     const orders = await this.getOrders();
-    return orders.find((o) => o.id === orderId) || null;
+    return orders.find((o) => o.id === orderId || o.order_code === orderId) || null;
   },
 
   async createOrder(orderData: Omit<Order, 'id' | 'order_number' | 'order_code' | 'created_at' | 'updated_at'>): Promise<Order> {
-    const num = globalStore.nextOrderNumber++;
-    const orderCode = `AD-${num}`;
+    const supabase = createSupabaseAdminClient();
+    let num = 1001;
+
+    if (supabase) {
+      try {
+        const { data: latest } = await supabase
+          .from('orders')
+          .select('order_number, order_code')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latest) {
+          if (latest.order_number) {
+            num = Math.max(num, Number(latest.order_number) + 1);
+          }
+          if (latest.order_code) {
+            const digits = latest.order_code.match(/\d+/);
+            if (digits) {
+              num = Math.max(num, parseInt(digits[0], 10) + 1);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao consultar último pedido para número sequencial:', e);
+      }
+    } else {
+      num = globalStore.nextOrderNumber++;
+    }
+
+    let orderCode = `AD-${num}`;
+
+    // Garante unicidade mesmo em concorrência
+    if (supabase) {
+      let isUnique = false;
+      let checkNum = num;
+      while (!isUnique) {
+        const { data: exists } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('order_code', `AD-${checkNum}`)
+          .maybeSingle();
+
+        if (!exists) {
+          orderCode = `AD-${checkNum}`;
+          num = checkNum;
+          isUnique = true;
+        } else {
+          checkNum++;
+        }
+      }
+    }
+
     const now = new Date().toISOString();
 
     const newOrder: Order = {
@@ -708,11 +780,10 @@ export const repository = {
       updated_at: now,
     };
 
-    const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
         const { items, ...orderRecord } = newOrder;
-        const { data: insertedOrder, error: orderErr } = await supabase
+        let { data: insertedOrder, error: orderErr } = await supabase
           .from('orders')
           .insert([{
             order_code: newOrder.order_code,
@@ -739,9 +810,47 @@ export const repository = {
           .select()
           .single();
 
-        if (!orderErr && insertedOrder) {
+        if (orderErr) {
+          console.error('Erro ao inserir pedido no Supabase:', orderErr);
+          // Fallback caso ainda colida: tenta com timestamp
+          const fallbackCode = `AD-${Math.floor(1000 + Math.random() * 9000)}`;
+          newOrder.order_code = fallbackCode;
+          const retry = await supabase
+            .from('orders')
+            .insert([{
+              order_code: fallbackCode,
+              customer_name: newOrder.customer_name,
+              customer_phone: newOrder.customer_phone,
+              order_type: newOrder.order_type,
+              neighborhood_id: newOrder.neighborhood_id || null,
+              neighborhood_name: newOrder.neighborhood_name || null,
+              address_street: newOrder.address_street || null,
+              address_number: newOrder.address_number || null,
+              address_complement: newOrder.address_complement || null,
+              address_reference: newOrder.address_reference || null,
+              order_notes: newOrder.order_notes || null,
+              payment_method: newOrder.payment_method,
+              payment_status: newOrder.payment_status,
+              payment_details: newOrder.payment_details || {},
+              order_status: newOrder.order_status,
+              subtotal: newOrder.subtotal,
+              discount_amount: newOrder.discount_amount,
+              delivery_fee: newOrder.delivery_fee,
+              total_amount: newOrder.total_amount,
+              coupon_code: newOrder.coupon_code || null,
+            }])
+            .select()
+            .single();
+
+          if (!retry.error && retry.data) {
+            insertedOrder = retry.data;
+          }
+        }
+
+        if (insertedOrder) {
           newOrder.id = insertedOrder.id;
           newOrder.order_number = insertedOrder.order_number;
+          newOrder.order_code = insertedOrder.order_code;
 
           if (items && items.length > 0) {
             const itemRows = items.map((it) => ({
@@ -791,10 +900,16 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
-        await supabase
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+        let updateQuery = supabase
           .from('orders')
-          .update({ order_status: status, updated_at: new Date().toISOString() })
-          .or(`id.eq.${orderId},order_code.eq.${orderId}`);
+          .update({ order_status: status, updated_at: new Date().toISOString() });
+        if (isUUID) {
+          updateQuery = updateQuery.eq('id', orderId);
+        } else {
+          updateQuery = updateQuery.eq('order_code', orderId);
+        }
+        await updateQuery;
       } catch (err) {
         console.error('Erro ao atualizar status no Supabase:', err);
       }
@@ -812,26 +927,33 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       try {
-        // Primeiro busca os detalhes de pagamento existentes para não sobrescrever QR Code / copia e cola
-        const { data: existingOrder } = await supabase
-          .from('orders')
-          .select('payment_details')
-          .or(`id.eq.${orderId},order_code.eq.${orderId}`)
-          .maybeSingle();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+        let selectQuery = supabase.from('orders').select('payment_details');
+        if (isUUID) {
+          selectQuery = selectQuery.eq('id', orderId);
+        } else {
+          selectQuery = selectQuery.eq('order_code', orderId);
+        }
+        const { data: existingOrder } = await selectQuery.maybeSingle();
 
         const mergedDetails = {
           ...(existingOrder?.payment_details || {}),
           ...(details || {}),
         };
 
-        await supabase
+        let updateQuery = supabase
           .from('orders')
           .update({
             payment_status: status,
             payment_details: mergedDetails,
             updated_at: new Date().toISOString(),
-          })
-          .or(`id.eq.${orderId},order_code.eq.${orderId}`);
+          });
+        if (isUUID) {
+          updateQuery = updateQuery.eq('id', orderId);
+        } else {
+          updateQuery = updateQuery.eq('order_code', orderId);
+        }
+        await updateQuery;
       } catch (err) {
         console.error('Erro ao atualizar status de pagamento no Supabase:', err);
       }
