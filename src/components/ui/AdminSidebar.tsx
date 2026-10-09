@@ -13,6 +13,7 @@ import {
   Tag,
   Clock,
   Settings,
+  UserCircle,
   ArrowLeft,
   LogOut,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ const menuItems = [
   { href: '/admin/cupons', label: 'Cupons', icon: Tag },
   { href: '/admin/horarios', label: 'Horários & Loja', icon: Clock },
   { href: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+  { href: '/admin/conta', label: 'Minha Conta', icon: UserCircle },
 ];
 
 export function AdminSidebar() {
