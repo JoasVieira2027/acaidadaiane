@@ -12,23 +12,59 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       status,
-      settings: {
-        store_name: settings.store_name,
-        whatsapp_number: settings.whatsapp_number,
-        address_text: settings.address_text,
-        accept_pix: settings.accept_pix,
-        accept_cash: settings.accept_cash,
-        accept_card_delivery: settings.accept_card_delivery,
-        accept_card_link: settings.accept_card_link,
-        allow_pickup: settings.allow_pickup,
-        allow_delivery: settings.allow_delivery,
-      },
+      settings,
       hours,
     });
   } catch (error: any) {
-    console.error('Erro na rota de store-status:', error);
+    console.error('Erro na rota GET de store-status:', error);
     return NextResponse.json(
       { success: false, message: 'Erro ao obter status da loja' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    let settingsToUpdate: any = null;
+    if (body.settings) {
+      settingsToUpdate = body.settings;
+    } else if (
+      body.is_manually_opened !== undefined ||
+      body.is_manually_closed !== undefined ||
+      body.open_message !== undefined ||
+      body.closed_message !== undefined ||
+      body.store_name !== undefined ||
+      body.whatsapp_number !== undefined
+    ) {
+      settingsToUpdate = body;
+    }
+
+    if (settingsToUpdate) {
+      await repository.updateSettings(settingsToUpdate);
+    }
+
+    if (body.hours && Array.isArray(body.hours)) {
+      await repository.updateBusinessHours(body.hours);
+    }
+
+    const updatedStatus = await repository.getStoreStatus();
+    const currentSettings = await repository.getSettings();
+    const currentHours = await repository.getBusinessHours();
+
+    return NextResponse.json({
+      success: true,
+      status: updatedStatus,
+      settings: currentSettings,
+      hours: currentHours,
+      message: 'Status e configurações da loja atualizados com sucesso',
+    });
+  } catch (error: any) {
+    console.error('Erro na rota POST de store-status:', error);
+    return NextResponse.json(
+      { success: false, message: 'Erro ao atualizar status da loja' },
       { status: 500 }
     );
   }

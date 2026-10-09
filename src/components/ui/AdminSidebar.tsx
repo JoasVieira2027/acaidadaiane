@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -39,6 +39,18 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [storeStatus, setStoreStatus] = useState<{ isOpen: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/store-status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.status) {
+          setStoreStatus(data.status);
+        }
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('acai_admin_auth');
@@ -102,8 +114,45 @@ export function AdminSidebar() {
           </div>
         </div>
 
+        {/* Status rápido da Loja */}
+        {storeStatus && (
+          <div style={{ padding: '0.75rem 1rem 0.25rem 1rem' }}>
+            <Link
+              href="/admin/horarios"
+              onClick={() => setMobileOpen(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.5rem 0.75rem',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: storeStatus.isOpen ? 'var(--success-bg)' : 'var(--danger-bg)',
+                color: storeStatus.isOpen ? 'var(--success)' : 'var(--danger)',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                border: `1px solid ${storeStatus.isOpen ? 'var(--success)' : 'var(--danger)'}`,
+              }}
+              title="Clique para gerenciar horários e abertura"
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: storeStatus.isOpen ? 'var(--success)' : 'var(--danger)',
+                  }}
+                />
+                <span>{storeStatus.isOpen ? 'Loja Aberta' : 'Loja Fechada'}</span>
+              </span>
+              <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>Gerenciar →</span>
+            </Link>
+          </div>
+        )}
+
         {/* Links de Navegação */}
-        <nav style={{ padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <nav style={{ padding: '0.75rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

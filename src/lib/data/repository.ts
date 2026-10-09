@@ -52,8 +52,27 @@ export const repository = {
   async getSettings(): Promise<StoreSettings> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      const { data } = await supabase.from('store_settings').select('*').eq('id', 'default').single();
-      if (data) return data;
+      try {
+        const { data, error } = await supabase.from('store_settings').select('*').eq('id', 'default').maybeSingle();
+        if (data && !error) {
+          globalStore.settings = { ...globalStore.settings, ...data };
+          return globalStore.settings;
+        }
+        // Se ainda não existir registro na tabela store_settings, inicializa
+        if (!data) {
+          const { data: created, error: createErr } = await supabase
+            .from('store_settings')
+            .upsert({ id: 'default', ...globalStore.settings, updated_at: new Date().toISOString() })
+            .select()
+            .single();
+          if (!createErr && created) {
+            globalStore.settings = { ...globalStore.settings, ...created };
+            return globalStore.settings;
+          }
+        }
+      } catch (err) {
+        console.error('Erro getSettings Supabase:', err);
+      }
     }
     return globalStore.settings;
   },
@@ -61,13 +80,27 @@ export const repository = {
   async updateSettings(updates: Partial<StoreSettings>): Promise<StoreSettings> {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
-      const { data, error } = await supabase
-        .from('store_settings')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', 'default')
-        .select()
-        .single();
-      if (!error && data) return data;
+      try {
+        const payload = {
+          id: 'default',
+          ...updates,
+          updated_at: new Date().toISOString(),
+        };
+        const { data, error } = await supabase
+          .from('store_settings')
+          .upsert(payload)
+          .select()
+          .single();
+        if (!error && data) {
+          globalStore.settings = { ...globalStore.settings, ...data };
+          return globalStore.settings;
+        }
+        if (error) {
+          console.error('Erro updateSettings Supabase:', error);
+        }
+      } catch (err) {
+        console.error('Erro updateSettings exception:', err);
+      }
     }
     globalStore.settings = { ...globalStore.settings, ...updates };
     return globalStore.settings;
@@ -468,6 +501,40 @@ export const repository = {
   },
 
   async updateBusinessHours(hours: BusinessHour[]): Promise<BusinessHour[]> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        for (const h of hours) {
+          const payload = {
+            day_of_week: Number(h.day_of_week),
+            open_time: h.open_time,
+            close_time: h.close_time,
+            is_closed: Boolean(h.is_closed),
+            label: h.label || null,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (h.id && isUuid(h.id)) {
+            await supabase.from('business_hours').update(payload).eq('id', h.id);
+          } else {
+            const { data: existing } = await supabase
+              .from('business_hours')
+              .select('id')
+              .eq('day_of_week', payload.day_of_week)
+              .maybeSingle();
+
+            if (existing) {
+              await supabase.from('business_hours').update(payload).eq('id', existing.id);
+            } else {
+              await supabase.from('business_hours').insert([payload]);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Erro updateBusinessHours Supabase:', err);
+      }
+    }
     globalStore.businessHours = hours;
     return hours;
   },

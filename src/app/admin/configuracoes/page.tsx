@@ -1,18 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Save, CheckCircle, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Save, CheckCircle, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { StoreSettings } from '@/lib/types';
 import { initialSettings } from '@/lib/data/mockData';
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<StoreSettings>(initialSettings);
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    setIsLoading(true);
+    fetch('/api/store-status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) {
+          setSettings((prev) => ({ ...prev, ...data.settings }));
+        }
+      })
+      .catch((err) => {
+        console.error('Erro ao carregar configurações:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedFeedback(true);
-    setTimeout(() => setSavedFeedback(false), 3000);
+    setIsSaving(true);
+    setErrorMessage(null);
+    setSavedFeedback(false);
+
+    try {
+      const res = await fetch('/api/store-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        if (data.settings) setSettings(data.settings);
+        setSavedFeedback(true);
+        setTimeout(() => setSavedFeedback(false), 4000);
+      } else {
+        setErrorMessage(data.message || 'Erro ao salvar configurações.');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar configurações:', err);
+      setErrorMessage('Erro de conexão ao salvar configurações.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -36,10 +79,31 @@ export default function AdminSettingsPage() {
             borderRadius: 'var(--radius-md)',
             marginBottom: '1.5rem',
             fontWeight: 600,
+            border: '1px solid var(--success)',
           }}
         >
           <CheckCircle size={18} />
           <span>Configurações salvas com sucesso!</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            backgroundColor: 'var(--danger-bg)',
+            color: 'var(--danger)',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: '1.5rem',
+            fontWeight: 600,
+            border: '1px solid var(--danger)',
+          }}
+        >
+          <AlertCircle size={18} />
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -209,10 +273,10 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="submit" className="btn btn-primary btn-lg">
-            <Save size={18} />
-            <span>Salvar Configurações Gerais</span>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
+          <button type="submit" disabled={isSaving || isLoading} className="btn btn-primary btn-lg">
+            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            <span>{isSaving ? 'Salvando...' : 'Salvar Configurações Gerais'}</span>
           </button>
         </div>
       </form>

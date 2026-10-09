@@ -12,22 +12,73 @@ import {
   Plus,
   AlertCircle,
   CheckCircle,
+  Power,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
-import { Order, StoreCurrentStatus } from '@/lib/types';
+import { Order, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { initialOrders } from '@/lib/data/mockData';
 
 export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [storeStatus, setStoreStatus] = useState<StoreCurrentStatus | null>(null);
+  const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchStatus = () => {
     fetch('/api/store-status')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) setStoreStatus(data.status);
+        if (data.success) {
+          setStoreStatus(data.status);
+          if (data.settings) setSettings(data.settings);
+        }
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchStatus();
   }, []);
+
+  const handleToggleStore = async (mode: 'open' | 'close' | 'auto') => {
+    setIsUpdatingStatus(true);
+    setStatusMessage(null);
+    try {
+      const payload: Partial<StoreSettings> = {
+        is_manually_opened: mode === 'open',
+        is_manually_closed: mode === 'close',
+      };
+
+      const res = await fetch('/api/store-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setStoreStatus(data.status);
+        if (data.settings) setSettings(data.settings);
+        setStatusMessage(
+          mode === 'open'
+            ? 'Loja ABERTA com sucesso! Clientes já podem fazer pedidos.'
+            : mode === 'close'
+            ? 'Loja FECHADA com sucesso! Novos pedidos estão bloqueados.'
+            : 'Modo automático reativado! A loja seguirá os horários cadastrados.'
+        );
+      } else {
+        alert(data.message || 'Erro ao alterar estado da loja.');
+      }
+    } catch (err) {
+      console.error('Erro ao alterar status:', err);
+      alert('Erro de conexão ao alterar status da loja.');
+    } finally {
+      setIsUpdatingStatus(false);
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
 
   // Métricas calculadas
   const totalOrders = orders.length;
@@ -71,39 +122,141 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Alerta de Status da Loja */}
+      {/* Feedback de Ação */}
+      {statusMessage && (
+        <div
+          style={{
+            padding: '0.85rem 1.25rem',
+            backgroundColor: 'var(--success-bg)',
+            color: 'var(--success)',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: '1.5rem',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            border: '1px solid var(--success)',
+          }}
+        >
+          <CheckCircle size={18} />
+          <span>{statusMessage}</span>
+        </div>
+      )}
+
+      {/* Card de Controle Rápido de Status da Loja */}
       {storeStatus && (
         <div
           className="card"
           style={{
-            padding: '1.25rem',
+            padding: '1.5rem',
             marginBottom: '2rem',
             display: 'flex',
+            flexWrap: 'wrap',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderLeft: `4px solid ${storeStatus.isOpen ? 'var(--success)' : 'var(--danger)'}`,
+            gap: '1.25rem',
+            borderLeft: `6px solid ${storeStatus.isOpen ? 'var(--success)' : 'var(--danger)'}`,
+            backgroundColor: storeStatus.isOpen ? 'rgba(34, 197, 94, 0.04)' : 'rgba(239, 68, 68, 0.04)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {storeStatus.isOpen ? (
-              <CheckCircle size={22} style={{ color: 'var(--success)' }} />
-            ) : (
-              <AlertCircle size={22} style={{ color: 'var(--danger)' }} />
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: '1 1 320px' }}>
+            <div
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: storeStatus.isOpen ? 'var(--success-bg)' : 'var(--danger-bg)',
+                color: storeStatus.isOpen ? 'var(--success)' : 'var(--danger)',
+                flexShrink: 0,
+              }}
+            >
+              {storeStatus.isOpen ? <CheckCircle size={26} /> : <AlertCircle size={26} />}
+            </div>
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>
-                {storeStatus.isOpen ? 'Loja Aberta para Pedidos' : 'Loja Fechada no Momento'}
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+                  {storeStatus.isOpen ? 'Loja ABERTA para Pedidos' : 'Loja FECHADA no Momento'}
+                </h3>
+                {settings?.is_manually_opened && (
+                  <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+                    ⚡ Forçado Aberto Manualmente
+                  </span>
+                )}
+                {settings?.is_manually_closed && (
+                  <span className="badge badge-danger" style={{ fontSize: '0.72rem' }}>
+                    🚫 Forçado Fechado Manualmente
+                  </span>
+                )}
+                {!settings?.is_manually_opened && !settings?.is_manually_closed && (
+                  <span className="badge" style={{ fontSize: '0.72rem', backgroundColor: 'var(--bg-tertiary)' }}>
+                    🕒 Horário Automático Programado
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                 {storeStatus.message}
               </p>
             </div>
           </div>
 
-          <Link href="/admin/horarios" className="btn btn-secondary btn-sm">
-            <span>Ajustar Horários</span>
-            <ChevronRight size={14} />
-          </Link>
+          {/* Botões Rápidos de Ação */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            {!storeStatus.isOpen ? (
+              <button
+                type="button"
+                onClick={() => handleToggleStore('open')}
+                disabled={isUpdatingStatus}
+                className="btn btn-sm"
+                style={{
+                  backgroundColor: 'var(--success)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                }}
+              >
+                {isUpdatingStatus ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
+                <span>Abrir Loja Agora</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleToggleStore('close')}
+                disabled={isUpdatingStatus}
+                className="btn btn-sm"
+                style={{
+                  backgroundColor: 'var(--danger)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                {isUpdatingStatus ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
+                <span>Fechar Loja Agora</span>
+              </button>
+            )}
+
+            {(settings?.is_manually_opened || settings?.is_manually_closed) && (
+              <button
+                type="button"
+                onClick={() => handleToggleStore('auto')}
+                disabled={isUpdatingStatus}
+                className="btn btn-secondary btn-sm"
+                title="Voltar a seguir os horários automáticos cadastrados"
+              >
+                <RotateCcw size={15} />
+                <span>Modo Automático</span>
+              </button>
+            )}
+
+            <Link href="/admin/horarios" className="btn btn-secondary btn-sm">
+              <span>Configurar Horários</span>
+              <ChevronRight size={14} />
+            </Link>
+          </div>
         </div>
       )}
 
