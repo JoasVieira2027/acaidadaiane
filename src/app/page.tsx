@@ -29,10 +29,27 @@ export default function HomePage() {
 
   useEffect(() => {
     Promise.all([
-      import('@/lib/data/mockData').then((mod) => {
-        setProducts(mod.initialProducts);
-        setCategories(mod.initialCategories);
-      }),
+      fetch('/api/products')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+            setProducts(data.products);
+            if (Array.isArray(data.categories) && data.categories.length > 0) {
+              setCategories(data.categories);
+            }
+          } else {
+            return import('@/lib/data/mockData').then((mod) => {
+              setProducts(mod.initialProducts);
+              setCategories(mod.initialCategories);
+            });
+          }
+        })
+        .catch(() => {
+          return import('@/lib/data/mockData').then((mod) => {
+            setProducts(mod.initialProducts);
+            setCategories(mod.initialCategories);
+          });
+        }),
       fetch('/api/store-status')
         .then((res) => res.json())
         .then((data) => {

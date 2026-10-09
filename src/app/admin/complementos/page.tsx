@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, CheckCircle, Ban, X, DollarSign } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit, Trash2, CheckCircle, Ban, X, DollarSign, Loader2 } from 'lucide-react';
 import { Option, OptionGroup } from '@/lib/types';
 import { initialOptionGroups } from '@/lib/data/mockData';
 
 export default function AdminComplementsPage() {
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>(initialOptionGroups);
+  const [loading, setLoading] = useState(true);
 
   // Estado para Criar/Editar Grupo
   const [editingGroup, setEditingGroup] = useState<Partial<OptionGroup> | null>(null);
@@ -17,42 +18,71 @@ export default function AdminComplementsPage() {
   const [editingOption, setEditingOption] = useState<Partial<Option> | null>(null);
   const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
 
+  const loadData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/option-groups');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.optionGroups)) {
+        setOptionGroups(data.optionGroups);
+      }
+    } catch (err) {
+      console.error('Error loading option groups:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   // 1. Alternar Disponibilidade da Opção
-  const handleToggleOptionAvailable = (groupId: string, optionId: string) => {
+  const handleToggleOptionAvailable = async (groupId: string, optionId: string) => {
+    const group = optionGroups.find((g) => g.id === groupId);
+    const opt = group?.options?.find((o) => o.id === optionId);
+    if (!opt) return;
+
+    const updatedOpt = { ...opt, is_available: !opt.is_available };
+
     setOptionGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
         return {
           ...g,
-          options: g.options?.map((opt) =>
-            opt.id === optionId ? { ...opt, is_available: !opt.is_available } : opt
-          ),
+          options: g.options?.map((o) => (o.id === optionId ? updatedOpt : o)),
         };
       })
     );
+
+    try {
+      await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-option', groupId, option: updatedOpt }),
+      });
+    } catch (err) {
+      console.error(err);
+      loadData();
+    }
   };
 
   // 2. Salvar Grupo (Criar ou Editar)
-  const handleSaveGroup = (e: React.FormEvent) => {
+  const handleSaveGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingGroup?.name?.trim()) return;
 
-    if (editingGroup.id) {
-      setOptionGroups((prev) =>
-        prev.map((g) => (g.id === editingGroup.id ? ({ ...g, ...editingGroup } as OptionGroup) : g))
-      );
-    } else {
-      const newG: OptionGroup = {
-        id: `grp-${Date.now()}`,
-        name: editingGroup.name.trim(),
-        is_required: editingGroup.is_required || false,
-        min_options: editingGroup.min_options || 0,
-        max_options: editingGroup.max_options || 1,
-        display_order: optionGroups.length + 1,
-        is_active: true,
-        options: [],
-      };
-      setOptionGroups((prev) => [...prev, newG]);
+    try {
+      const res = await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group: editingGroup }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadData();
+      }
+    } catch (err) {
+      console.error(err);
     }
 
     setIsGroupModalOpen(false);
@@ -60,54 +90,39 @@ export default function AdminComplementsPage() {
   };
 
   // 3. Excluir Grupo
-  const handleDeleteGroup = (groupId: string) => {
+  const handleDeleteGroup = async (groupId: string) => {
     if (confirm('Tem certeza que deseja excluir este grupo inteiro de complementos?')) {
-      setOptionGroups((prev) => prev.filter((g) => g.id !== groupId));
+      try {
+        await fetch(`/api/option-groups?id=${groupId}`, { method: 'DELETE' });
+        await loadData();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
   // 4. Salvar Opção (Criar ou Editar valor/nome)
-  const handleSaveOption = (e: React.FormEvent) => {
+  const handleSaveOption = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetGroupId || !editingOption?.name?.trim()) return;
 
-    if (editingOption.id) {
-      // Atualizar opção existente
-      setOptionGroups((prev) =>
-        prev.map((g) => {
-          if (g.id !== targetGroupId) return g;
-          return {
-            ...g,
-            options: g.options?.map((opt) =>
-              opt.id === editingOption.id
-                ? ({
-                    ...opt,
-                    name: editingOption.name!.trim(),
-                    price: Number(editingOption.price || 0),
-                  } as Option)
-                : opt
-            ),
-          };
-        })
-      );
-    } else {
-      // Adicionar nova opção
-      const newOpt: Option = {
-        id: `opt-${Date.now()}`,
-        group_id: targetGroupId,
-        name: editingOption.name.trim(),
-        price: Number(editingOption.price || 0),
-        is_available: true,
-        max_quantity_per_item: 1,
-        display_order: 10,
-      };
-
-      setOptionGroups((prev) =>
-        prev.map((g) => {
-          if (g.id !== targetGroupId) return g;
-          return { ...g, options: [...(g.options || []), newOpt] };
-        })
-      );
+    try {
+      await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save-option',
+          groupId: targetGroupId,
+          option: {
+            ...editingOption,
+            name: editingOption.name.trim(),
+            price: Number(editingOption.price || 0),
+          },
+        }),
+      });
+      await loadData();
+    } catch (err) {
+      console.error(err);
     }
 
     setIsOptionModalOpen(false);
@@ -116,17 +131,18 @@ export default function AdminComplementsPage() {
   };
 
   // 5. Excluir Opção
-  const handleDeleteOption = (groupId: string, optionId: string) => {
+  const handleDeleteOption = async (groupId: string, optionId: string) => {
     if (confirm('Deseja excluir este complemento/adicional?')) {
-      setOptionGroups((prev) =>
-        prev.map((g) => {
-          if (g.id !== groupId) return g;
-          return {
-            ...g,
-            options: g.options?.filter((o) => o.id !== optionId),
-          };
-        })
-      );
+      try {
+        await fetch('/api/option-groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete-option', groupId, optionId }),
+        });
+        await loadData();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 

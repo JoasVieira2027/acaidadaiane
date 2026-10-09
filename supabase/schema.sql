@@ -248,31 +248,100 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_status_history ENABLE ROW LEVEL SECURITY;
 
 -- 1. Leitura pública para dados do cardápio e funcionamento
+DROP POLICY IF EXISTS "Public read store_settings" ON store_settings;
 CREATE POLICY "Public read store_settings" ON store_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read categories" ON categories;
 CREATE POLICY "Public read categories" ON categories FOR SELECT USING (is_active = true OR auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Public read option_groups" ON option_groups;
 CREATE POLICY "Public read option_groups" ON option_groups FOR SELECT USING (is_active = true OR auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Public read options" ON options;
 CREATE POLICY "Public read options" ON options FOR SELECT USING (is_available = true OR auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Public read products" ON products;
 CREATE POLICY "Public read products" ON products FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read product_option_groups" ON product_option_groups;
 CREATE POLICY "Public read product_option_groups" ON product_option_groups FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read neighborhoods" ON neighborhoods;
 CREATE POLICY "Public read neighborhoods" ON neighborhoods FOR SELECT USING (is_active = true OR auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Public read business_hours" ON business_hours;
 CREATE POLICY "Public read business_hours" ON business_hours FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read special_closures" ON special_closures;
 CREATE POLICY "Public read special_closures" ON special_closures FOR SELECT USING (true);
 
 -- 2. Cupons: Apenas admins autenticados podem ver todos os cupons. Verificação de código feita no backend
+DROP POLICY IF EXISTS "Admin full coupons" ON coupons;
 CREATE POLICY "Admin full coupons" ON coupons FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- 3. Pedidos: Apenas admins podem ler todos os pedidos. Clientes criam através de endpoint server validado
+DROP POLICY IF EXISTS "Admin full orders" ON orders;
 CREATE POLICY "Admin full orders" ON orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full order_items" ON order_items;
 CREATE POLICY "Admin full order_items" ON order_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full order_status_history" ON order_status_history;
 CREATE POLICY "Admin full order_status_history" ON order_status_history FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- 4. Modificações em catálogo e configurações restritas a usuários autenticados (admin)
+DROP POLICY IF EXISTS "Admin full store_settings" ON store_settings;
 CREATE POLICY "Admin full store_settings" ON store_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full categories" ON categories;
 CREATE POLICY "Admin full categories" ON categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full option_groups" ON option_groups;
 CREATE POLICY "Admin full option_groups" ON option_groups FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full options" ON options;
 CREATE POLICY "Admin full options" ON options FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full products" ON products;
 CREATE POLICY "Admin full products" ON products FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full product_option_groups" ON product_option_groups;
 CREATE POLICY "Admin full product_option_groups" ON product_option_groups FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full neighborhoods" ON neighborhoods;
 CREATE POLICY "Admin full neighborhoods" ON neighborhoods FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full business_hours" ON business_hours;
 CREATE POLICY "Admin full business_hours" ON business_hours FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admin full special_closures" ON special_closures;
 CREATE POLICY "Admin full special_closures" ON special_closures FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 5. Bucket de imagens dos produtos no Supabase Storage
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('product-images', 'product-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de acesso para o bucket product-images
+DROP POLICY IF EXISTS "Public read product images" ON storage.objects;
+CREATE POLICY "Public read product images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'product-images');
+
+DROP POLICY IF EXISTS "Admin upload product images" ON storage.objects;
+CREATE POLICY "Admin upload product images"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'product-images');
+
+DROP POLICY IF EXISTS "Admin update product images" ON storage.objects;
+CREATE POLICY "Admin update product images"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'product-images');
+
+DROP POLICY IF EXISTS "Admin delete product images" ON storage.objects;
+CREATE POLICY "Admin delete product images"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'product-images');

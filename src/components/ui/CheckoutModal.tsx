@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, CreditCard, Banknote, QrCode, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, CreditCard, Banknote, QrCode, MessageSquare, AlertCircle, Loader2 } from 'lucide-react';
 import { PaymentMethod } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -31,31 +31,41 @@ export function CheckoutModal() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Anti-duplo-clique: bloqueia envio duplicado
+  const submittingRef = useRef(false);
+
 
   if (!isCheckoutModalOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Bloquear se já está processando (evita pedido duplicado por cliques rápidos)
+    if (submittingRef.current || loading) return;
+    submittingRef.current = true;
     setErrorMsg(null);
 
     if (!customerName.trim()) {
       setErrorMsg('Por favor, informe seu nome completo.');
+      submittingRef.current = false;
       return;
     }
 
     const cleanPhone = customerPhone.replace(/\D/g, '');
     if (cleanPhone.length < 8) {
       setErrorMsg('Por favor, informe um telefone ou WhatsApp válido com DDD.');
+      submittingRef.current = false;
       return;
     }
 
     if (orderType === 'delivery') {
       if (!street.trim()) {
         setErrorMsg('Informe o nome da rua ou avenida para entrega.');
+        submittingRef.current = false;
         return;
       }
       if (!neighborhood) {
         setErrorMsg('Selecione seu bairro de entrega no carrinho.');
+        submittingRef.current = false;
         return;
       }
     }
@@ -100,6 +110,7 @@ export function CheckoutModal() {
       if (!res.ok || !data.success) {
         setErrorMsg(data.message || 'Erro ao registrar pedido.');
         setLoading(false);
+        submittingRef.current = false;
         return;
       }
 
@@ -110,6 +121,7 @@ export function CheckoutModal() {
     } catch {
       setErrorMsg('Falha de conexão com o servidor. Verifique sua internet.');
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -367,10 +379,17 @@ export function CheckoutModal() {
             type="submit"
             disabled={loading}
             className="btn btn-primary btn-lg"
-            style={{ width: '100%', marginTop: '0.5rem' }}
+            style={{ width: '100%', marginTop: '0.5rem', gap: '0.5rem' }}
           >
-            {loading ? t.checkout.processing : `${t.checkout.confirmOrder} • R$ ${totalAmount.toFixed(2)}`}
+            {loading ? (
+              <>
+                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                {t.checkout.processing}
+              </>
+            ) : `${t.checkout.confirmOrder} • R$ ${totalAmount.toFixed(2)}`}
           </button>
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
         </form>
       </div>
     </div>
