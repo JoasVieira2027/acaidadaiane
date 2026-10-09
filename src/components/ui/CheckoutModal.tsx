@@ -166,7 +166,7 @@ export function CheckoutModal() {
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
               {t.checkout.customerInfo}
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="checkout-grid-2">
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">{t.checkout.fullName} *</label>
                 <input
@@ -200,7 +200,7 @@ export function CheckoutModal() {
                 {t.checkout.addressInfo} ({neighborhood?.name})
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '0.75rem' }}>
+                <div className="checkout-grid-street">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">{t.checkout.street} *</label>
                     <input
@@ -224,7 +224,7 @@ export function CheckoutModal() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="checkout-grid-2">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">{t.checkout.complement}</label>
                     <input

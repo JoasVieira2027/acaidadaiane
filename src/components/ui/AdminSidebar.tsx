@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -16,6 +16,8 @@ import {
   UserCircle,
   ArrowLeft,
   LogOut,
+  Menu,
+  X,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
@@ -36,6 +38,7 @@ const menuItems = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('acai_admin_auth');
@@ -44,24 +47,12 @@ export function AdminSidebar() {
     router.replace('/admin/login');
   };
 
-  return (
-    <aside
-      className="no-print"
-      style={{
-        width: '260px',
-        backgroundColor: 'var(--bg-secondary)',
-        borderRight: '1px solid var(--border-color)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        flexShrink: 0,
-      }}
-    >
+  const activeItem = menuItems.find((item) => pathname === item.href);
+
+  const SidebarContent = () => (
+    <>
       <div>
-        {/* Topo do Menu com Logo Oficial */}
+        {/* Topo com Logo */}
         <div
           style={{
             padding: '1.25rem 1.5rem',
@@ -96,7 +87,19 @@ export function AdminSidebar() {
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Painel Administrativo</span>
             </div>
           </div>
-          <ThemeToggle />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <ThemeToggle />
+            {/* Botão fechar no mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="admin-sidebar-close btn btn-secondary btn-sm"
+              style={{ borderRadius: '50%', padding: '0.4rem' }}
+              aria-label="Fechar menu"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Links de Navegação */}
@@ -109,6 +112,7 @@ export function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMobileOpen(false)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -130,7 +134,7 @@ export function AdminSidebar() {
         </nav>
       </div>
 
-      {/* Rodapé da Sidebar */}
+      {/* Rodapé */}
       <div
         style={{
           padding: '1.25rem 1.5rem',
@@ -149,6 +153,7 @@ export function AdminSidebar() {
           href="/"
           className="btn btn-outline btn-sm"
           style={{ width: '100%', justifyContent: 'center' }}
+          onClick={() => setMobileOpen(false)}
         >
           <ArrowLeft size={16} />
           <span>Ver Cardápio Público</span>
@@ -164,6 +169,55 @@ export function AdminSidebar() {
           <span>Encerrar Sessão</span>
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* ── Topbar mobile: hambúrguer + título da aba atual ── */}
+      <header className="admin-topbar no-print">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="btn btn-secondary btn-sm"
+            style={{ borderRadius: 'var(--radius-md)', padding: '0.45rem 0.6rem' }}
+            aria-label="Abrir menu"
+          >
+            <Menu size={20} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <img src="/logo.png" alt="logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+            <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+              {activeItem?.label ?? 'Admin'}
+            </span>
+          </div>
+        </div>
+        <ThemeToggle />
+      </header>
+
+      {/* ── Overlay do menu mobile ── */}
+      {mobileOpen && (
+        <div
+          className="admin-sidebar-overlay"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Sidebar desktop (sempre visível ≥1024px) ── */}
+      <aside
+        className={`admin-sidebar-desktop no-print`}
+      >
+        <SidebarContent />
+      </aside>
+
+      {/* ── Drawer sidebar mobile (abre pelo hambúrguer) ── */}
+      <aside
+        className={`admin-sidebar-mobile no-print ${mobileOpen ? 'open' : ''}`}
+      >
+        <SidebarContent />
+      </aside>
+    </>
   );
 }

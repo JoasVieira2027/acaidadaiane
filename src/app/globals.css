@@ -431,9 +431,180 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   .filters-scroll::-webkit-scrollbar { display: none; }
 }
 
+/* ══════════════════════════════════════
+   ADMIN PANEL — LAYOUT RESPONSIVO
+   Sidebar fixa desktop, drawer mobile
+   ══════════════════════════════════════ */
+
+/* Layout wrapper */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+}
+
+/* Conteúdo principal ao lado da sidebar */
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Em desktop: adiciona top padding zero (topbar não existe) */
+  padding-top: 0;
+}
+
+/* Topbar hambúrguer: OCULTA no desktop */
+.admin-topbar {
+  display: none;
+}
+
+/* Sidebar desktop: SEMPRE visível ≥1024px */
+.admin-sidebar-desktop {
+  width: 260px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+/* Sidebar mobile: drawer deslizante — oculta por padrão */
+.admin-sidebar-mobile {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 1001;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.28s ease;
+  box-shadow: var(--shadow-xl);
+}
+.admin-sidebar-mobile.open {
+  transform: translateX(0);
+}
+
+/* Overlay escuro atrás do drawer mobile */
+.admin-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+/* Botão X dentro da sidebar — oculto no desktop */
+.admin-sidebar-close {
+  display: none !important;
+}
+
+/* Responsividade do checkout: grids que quebram em mobile */
+.checkout-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.checkout-grid-street {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 0.75rem;
+}
+
+/* Tabelas do admin: scroll horizontal */
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+}
+.admin-table-wrap table {
+  min-width: 600px;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* ── Responsividade do modal em mobile ── */
+/* Ainda mantida acima, mas garantindo bottom-sheet */
+
+/* ══════════════════════════════════════
+   BREAKPOINTS RESPONSIVOS — ADMIN
+   ══════════════════════════════════════ */
+
+/* ≤1024px: sidebar escondida, topbar hambúrguer visível */
+@media (max-width: 1024px) {
+  .admin-sidebar-desktop { display: none; }
+  .admin-sidebar-mobile  { display: flex; }
+  .admin-sidebar-overlay { display: block; }
+  .admin-sidebar-close   { display: flex !important; }
+
+  .admin-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    height: 56px;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    flex-shrink: 0;
+  }
+
+  /* Conteúdo ganha padding-top para topbar */
+  .admin-main {
+    min-height: calc(100vh - 56px);
+  }
+
+  /* Layout admin: coluna única */
+  .admin-layout {
+    flex-direction: column;
+  }
+}
+
+/* ≤640px: checkout grids viram coluna única */
+@media (max-width: 640px) {
+  .checkout-grid-2,
+  .checkout-grid-street {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Rodapé do modal de produto: stepper + botão em coluna */
+  .product-modal-footer {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .product-modal-footer > button {
+    width: 100%;
+  }
+
+  /* Padding menor nos modais */
+  .modal-content form,
+  .modal-content > div {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
 /* ── Print ── */
 @media print {
-  header, footer, nav, button, .no-print, .btn, .modal-overlay, .drawer-overlay {
+  header, footer, nav, button, .no-print, .btn, .modal-overlay, .drawer-overlay,
+  .admin-topbar, .admin-sidebar-desktop, .admin-sidebar-mobile {
     display: none !important;
   }
 
@@ -470,3 +641,4 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
     font-family: var(--font-sans);
   }
 }
+

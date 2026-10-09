@@ -320,6 +320,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
 
         {/* Rodapé do Modal: Quantidade e Botão Adicionar */}
         <div
+          className="product-modal-footer"
           style={{
             padding: '1.25rem 1.5rem',
             borderTop: '1px solid var(--border-color)',

@@ -10,13 +10,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Se a rota for o login, permite acesso direto sem sidebar
     if (pathname === '/admin/login') {
       setIsAuthenticated(true);
       return;
     }
-
-    // Verificar autenticação
     const authFlag = localStorage.getItem('acai_admin_auth');
     if (authFlag === 'true') {
       setIsAuthenticated(true);
@@ -26,12 +23,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname, router]);
 
-  // Durante a renderização da página de login
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
 
-  // Enquanto valida autenticação
   if (isAuthenticated === null || !isAuthenticated) {
     return (
       <div
@@ -46,15 +41,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           fontWeight: 600,
         }}
       >
-        Verificando credenciais de acesso administrativo...
+        Verificando credenciais...
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-primary)' }}>
+    // wrapper com classe para CSS responsivo do admin
+    <div className="admin-layout">
       <AdminSidebar />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      {/* Conteúdo principal: em desktop fica ao lado da sidebar */}
+      <div className="admin-main">
         {children}
       </div>
     </div>
