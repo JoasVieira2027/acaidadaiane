@@ -513,60 +513,41 @@ export const initialProducts: Product[] = [
 ];
 
 export const initialNeighborhoods: Neighborhood[] = [
-  {
-    id: 'b1000000-0000-0000-0000-000000000001',
-    name: 'Boa Viagem',
-    delivery_fee: 5.0,
-    min_order_amount: 20.0,
-    free_delivery_threshold: 50.0,
-    is_active: true,
-    display_order: 1,
-  },
-  {
-    id: 'b1000000-0000-0000-0000-000000000002',
-    name: 'Pina',
-    delivery_fee: 6.0,
-    min_order_amount: 20.0,
-    free_delivery_threshold: 60.0,
-    is_active: true,
-    display_order: 2,
-  },
-  {
-    id: 'b1000000-0000-0000-0000-000000000003',
-    name: 'Imbiribeira',
-    delivery_fee: 7.0,
-    min_order_amount: 25.0,
-    free_delivery_threshold: 65.0,
-    is_active: true,
-    display_order: 3,
-  },
-  {
-    id: 'b1000000-0000-0000-0000-000000000004',
-    name: 'Setúbal',
-    delivery_fee: 5.0,
-    min_order_amount: 20.0,
-    free_delivery_threshold: 50.0,
-    is_active: true,
-    display_order: 4,
-  },
-  {
-    id: 'b1000000-0000-0000-0000-000000000005',
-    name: 'Candeias',
-    delivery_fee: 9.0,
-    min_order_amount: 30.0,
-    free_delivery_threshold: 80.0,
-    is_active: true,
-    display_order: 5,
-  },
-  {
-    id: 'b1000000-0000-0000-0000-000000000006',
-    name: 'Piedade',
-    delivery_fee: 8.0,
-    min_order_amount: 25.0,
-    free_delivery_threshold: 75.0,
-    is_active: true,
-    display_order: 6,
-  },
+  // RECIFE - ZONA SUL
+  { id: 'b-rec-01', name: 'Boa Viagem (Recife)', delivery_fee: 5.0, min_order_amount: 20.0, free_delivery_threshold: 50.0, is_active: true, display_order: 1 },
+  { id: 'b-rec-02', name: 'Pina (Recife)', delivery_fee: 6.0, min_order_amount: 20.0, free_delivery_threshold: 55.0, is_active: true, display_order: 2 },
+  { id: 'b-rec-03', name: 'Setúbal (Recife)', delivery_fee: 5.0, min_order_amount: 20.0, free_delivery_threshold: 50.0, is_active: true, display_order: 3 },
+  { id: 'b-rec-04', name: 'Imbiribeira (Recife)', delivery_fee: 7.0, min_order_amount: 25.0, free_delivery_threshold: 65.0, is_active: true, display_order: 4 },
+  { id: 'b-rec-05', name: 'Ipsep (Recife)', delivery_fee: 7.5, min_order_amount: 25.0, free_delivery_threshold: 70.0, is_active: true, display_order: 5 },
+  { id: 'b-rec-06', name: 'Ibura (Recife)', delivery_fee: 8.5, min_order_amount: 25.0, free_delivery_threshold: 75.0, is_active: true, display_order: 6 },
+  
+  // RECIFE - ZONA NORTE & CENTRO
+  { id: 'b-rec-07', name: 'Graças (Recife)', delivery_fee: 9.0, min_order_amount: 30.0, free_delivery_threshold: 80.0, is_active: true, display_order: 7 },
+  { id: 'b-rec-08', name: 'Espinheiro (Recife)', delivery_fee: 9.0, min_order_amount: 30.0, free_delivery_threshold: 80.0, is_active: true, display_order: 8 },
+  { id: 'b-rec-09', name: 'Madalena (Recife)', delivery_fee: 8.5, min_order_amount: 25.0, free_delivery_threshold: 75.0, is_active: true, display_order: 9 },
+  { id: 'b-rec-10', name: 'Torre (Recife)', delivery_fee: 8.5, min_order_amount: 30.0, free_delivery_threshold: 80.0, is_active: true, display_order: 10 },
+  { id: 'b-rec-11', name: 'Casa Forte (Recife)', delivery_fee: 10.0, min_order_amount: 35.0, free_delivery_threshold: 90.0, is_active: true, display_order: 11 },
+  { id: 'b-rec-12', name: 'Jaqueira (Recife)', delivery_fee: 10.0, min_order_amount: 35.0, free_delivery_threshold: 90.0, is_active: true, display_order: 12 },
+  { id: 'b-rec-13', name: 'Parnamirim (Recife)', delivery_fee: 10.0, min_order_amount: 35.0, free_delivery_threshold: 90.0, is_active: true, display_order: 13 },
+  { id: 'b-rec-14', name: 'Derby (Recife)', delivery_fee: 8.0, min_order_amount: 25.0, free_delivery_threshold: 75.0, is_active: true, display_order: 14 },
+  { id: 'b-rec-15', name: 'Boa Vista (Recife)', delivery_fee: 8.0, min_order_amount: 25.0, free_delivery_threshold: 75.0, is_active: true, display_order: 15 },
+  { id: 'b-rec-16', name: 'Cordeiro (Recife)', delivery_fee: 9.0, min_order_amount: 30.0, free_delivery_threshold: 85.0, is_active: true, display_order: 16 },
+  { id: 'b-rec-17', name: 'Afogados (Recife)', delivery_fee: 8.0, min_order_amount: 25.0, free_delivery_threshold: 75.0, is_active: true, display_order: 17 },
+  { id: 'b-rec-18', name: 'Várzea (Recife)', delivery_fee: 12.0, min_order_amount: 40.0, free_delivery_threshold: 100.0, is_active: true, display_order: 18 },
+  
+  // OLINDA
+  { id: 'b-oli-01', name: 'Bairro Novo (Olinda)', delivery_fee: 12.0, min_order_amount: 40.0, free_delivery_threshold: 110.0, is_active: true, display_order: 19 },
+  { id: 'b-oli-02', name: 'Casa Caiada (Olinda)', delivery_fee: 13.0, min_order_amount: 45.0, free_delivery_threshold: 120.0, is_active: true, display_order: 20 },
+  { id: 'b-oli-03', name: 'Carmo / Sítio Histórico (Olinda)', delivery_fee: 12.0, min_order_amount: 40.0, free_delivery_threshold: 110.0, is_active: true, display_order: 21 },
+  { id: 'b-oli-04', name: 'Rio Doce (Olinda)', delivery_fee: 15.0, min_order_amount: 50.0, free_delivery_threshold: 130.0, is_active: true, display_order: 22 },
+  { id: 'b-oli-05', name: 'Jardim Atlântico (Olinda)', delivery_fee: 14.0, min_order_amount: 45.0, free_delivery_threshold: 120.0, is_active: true, display_order: 23 },
+  { id: 'b-oli-06', name: 'Salgadinho (Olinda)', delivery_fee: 11.0, min_order_amount: 35.0, free_delivery_threshold: 100.0, is_active: true, display_order: 24 },
+  { id: 'b-oli-07', name: 'Amparo (Olinda)', delivery_fee: 12.0, min_order_amount: 40.0, free_delivery_threshold: 110.0, is_active: true, display_order: 25 },
+  { id: 'b-oli-08', name: 'Peixinhos (Olinda)', delivery_fee: 11.0, min_order_amount: 35.0, free_delivery_threshold: 100.0, is_active: true, display_order: 26 },
+
+  // JABOATÃO / LIMITES
+  { id: 'b-jab-01', name: 'Piedade (Jaboatão)', delivery_fee: 8.0, min_order_amount: 25.0, free_delivery_threshold: 75.0, is_active: true, display_order: 27 },
+  { id: 'b-jab-02', name: 'Candeias (Jaboatão)', delivery_fee: 9.0, min_order_amount: 30.0, free_delivery_threshold: 80.0, is_active: true, display_order: 28 },
 ];
 
 export const initialBusinessHours: BusinessHour[] = [

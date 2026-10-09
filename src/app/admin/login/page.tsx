@@ -18,23 +18,39 @@ export default function AdminLoginPage() {
     setErrorMsg(null);
     setLoading(true);
 
-    const supabase = createSupabaseBrowserClient();
+    try {
+      const supabase = createSupabaseBrowserClient();
 
-    if (supabase) {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
+      if (supabase) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
+        });
 
-      if (error) {
-        setErrorMsg('Credenciais inválidas. Verifique seu e-mail e senha.');
-        setLoading(false);
-        return;
+        if (error) {
+          setErrorMsg('Credenciais inválidas no Supabase Auth. Verifique seu e-mail e senha.');
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Validação local quando Supabase ainda não estiver conectado no ambiente local
+        if (password.trim().length < 6) {
+          setErrorMsg('A senha administrativa deve ter no mínimo 6 caracteres.');
+          setLoading(false);
+          return;
+        }
       }
-    }
 
-    // Se Supabase não estiver configurado localmente ou login for bem sucedido:
-    router.push('/admin');
+      // Salva sessão autenticada
+      localStorage.setItem('acai_admin_auth', 'true');
+      localStorage.setItem('acai_admin_email', email.trim());
+      document.cookie = 'acai_admin_session=1; path=/; max-age=86400; SameSite=Lax';
+
+      router.push('/admin');
+    } catch {
+      setErrorMsg('Erro ao autenticar. Tente novamente.');
+      setLoading(false);
+    }
   };
 
   return (

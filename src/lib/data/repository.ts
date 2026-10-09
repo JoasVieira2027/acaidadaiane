@@ -3,6 +3,7 @@ import {
   Category,
   Coupon,
   Neighborhood,
+  Option,
   OptionGroup,
   Order,
   OrderStatus,
@@ -165,6 +166,65 @@ export const repository = {
     };
     globalStore.optionGroups.push(newG);
     return newG;
+  },
+
+  async deleteOptionGroup(id: string): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      const { error } = await supabase.from('option_groups').delete().eq('id', id);
+      return !error;
+    }
+    globalStore.optionGroups = globalStore.optionGroups.filter((g: OptionGroup) => g.id !== id);
+    return true;
+  },
+
+  async saveOption(groupId: string, opt: Partial<Option>): Promise<Option> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      if (opt.id) {
+        const { data } = await supabase.from('options').update(opt).eq('id', opt.id).select().single();
+        if (data) return data;
+      } else {
+        const { data } = await supabase.from('options').insert([{ ...opt, group_id: groupId }]).select().single();
+        if (data) return data;
+      }
+    }
+    const group = globalStore.optionGroups.find((g: OptionGroup) => g.id === groupId);
+    if (!group) throw new Error('Grupo não encontrado');
+    if (!group.options) group.options = [];
+
+    if (opt.id) {
+      const idx = group.options.findIndex((o: Option) => o.id === opt.id);
+      if (idx >= 0) {
+        group.options[idx] = { ...group.options[idx], ...opt };
+        return group.options[idx];
+      }
+    }
+    const newOpt: Option = {
+      id: `opt-${Date.now()}`,
+      group_id: groupId,
+      name: opt.name || 'Nova Opção',
+      price: opt.price || 0,
+      is_available: opt.is_available ?? true,
+      max_quantity_per_item: opt.max_quantity_per_item ?? 1,
+      display_order: opt.display_order ?? group.options.length + 1,
+      ...opt,
+    };
+    group.options.push(newOpt);
+    return newOpt;
+  },
+
+  async deleteOption(groupId: string, optionId: string): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      const { error } = await supabase.from('options').delete().eq('id', optionId);
+      return !error;
+    }
+    const group = globalStore.optionGroups.find((g: OptionGroup) => g.id === groupId);
+    if (group && group.options) {
+      group.options = group.options.filter((o: Option) => o.id !== optionId);
+    }
+    return true;
   },
 
   // PRODUTOS

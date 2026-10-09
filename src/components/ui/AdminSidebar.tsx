@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -14,6 +14,7 @@ import {
   Clock,
   Settings,
   ArrowLeft,
+  LogOut,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
@@ -32,6 +33,14 @@ const menuItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    localStorage.removeItem('acai_admin_auth');
+    localStorage.removeItem('acai_admin_email');
+    document.cookie = 'acai_admin_session=; path=/; max-age=0';
+    router.replace('/admin/login');
+  };
 
   return (
     <aside
@@ -50,7 +59,7 @@ export function AdminSidebar() {
       }}
     >
       <div>
-        {/* Topo do Menu */}
+        {/* Topo do Menu com Logo Oficial */}
         <div
           style={{
             padding: '1.25rem 1.5rem',
@@ -60,11 +69,30 @@ export function AdminSidebar() {
             justifyContent: 'space-between',
           }}
         >
-          <div>
-            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block' }}>
-              Painel Daiane
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gestão do Cardápio</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: 'var(--radius-md)',
+                overflow: 'hidden',
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-color)',
+                flexShrink: 0,
+              }}
+            >
+              <img
+                src="/logo.png"
+                alt="Açaí da Daiane"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </div>
+            <div>
+              <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block' }}>
+                Açaí da Daiane
+              </span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Painel Administrativo</span>
+            </div>
           </div>
           <ThemeToggle />
         </div>
@@ -123,6 +151,16 @@ export function AdminSidebar() {
           <ArrowLeft size={16} />
           <span>Ver Cardápio Público</span>
         </Link>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="btn btn-secondary btn-sm"
+          style={{ width: '100%', justifyContent: 'center', color: 'var(--danger)' }}
+        >
+          <LogOut size={16} />
+          <span>Encerrar Sessão</span>
+        </button>
       </div>
     </aside>
   );

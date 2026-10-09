@@ -1,27 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, CheckCircle, Ban } from 'lucide-react';
+import { Plus, Edit, Trash2, CheckCircle, Ban, X, DollarSign } from 'lucide-react';
 import { Option, OptionGroup } from '@/lib/types';
 import { initialOptionGroups } from '@/lib/data/mockData';
 
 export default function AdminComplementsPage() {
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>(initialOptionGroups);
-  const [editingGroup, setEditingGroup] = useState<Partial<OptionGroup>>({
-    name: '',
-    is_required: false,
-    min_options: 0,
-    max_options: 1,
-    is_active: true,
-  });
+
+  // Estado para Criar/Editar Grupo
+  const [editingGroup, setEditingGroup] = useState<Partial<OptionGroup> | null>(null);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
-  // Modal para adicionar opção ao grupo
+  // Estado para Criar/Editar Opção
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
-  const [newOptionName, setNewOptionName] = useState('');
-  const [newOptionPrice, setNewOptionPrice] = useState(0);
+  const [editingOption, setEditingOption] = useState<Partial<Option> | null>(null);
   const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
 
+  // 1. Alternar Disponibilidade da Opção
   const handleToggleOptionAvailable = (groupId: string, optionId: string) => {
     setOptionGroups((prev) =>
       prev.map((g) => {
@@ -36,35 +32,10 @@ export default function AdminComplementsPage() {
     );
   };
 
-  const handleSaveOption = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetGroupId || !newOptionName.trim()) return;
-
-    const newOpt: Option = {
-      id: `opt-${Date.now()}`,
-      group_id: targetGroupId,
-      name: newOptionName.trim(),
-      price: Number(newOptionPrice),
-      is_available: true,
-      max_quantity_per_item: 1,
-      display_order: 10,
-    };
-
-    setOptionGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== targetGroupId) return g;
-        return { ...g, options: [...(g.options || []), newOpt] };
-      })
-    );
-
-    setIsOptionModalOpen(false);
-    setNewOptionName('');
-    setNewOptionPrice(0);
-  };
-
+  // 2. Salvar Grupo (Criar ou Editar)
   const handleSaveGroup = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingGroup.name?.trim()) return;
+    if (!editingGroup?.name?.trim()) return;
 
     if (editingGroup.id) {
       setOptionGroups((prev) =>
@@ -73,7 +44,7 @@ export default function AdminComplementsPage() {
     } else {
       const newG: OptionGroup = {
         id: `grp-${Date.now()}`,
-        name: editingGroup.name,
+        name: editingGroup.name.trim(),
         is_required: editingGroup.is_required || false,
         min_options: editingGroup.min_options || 0,
         max_options: editingGroup.max_options || 1,
@@ -85,15 +56,87 @@ export default function AdminComplementsPage() {
     }
 
     setIsGroupModalOpen(false);
+    setEditingGroup(null);
+  };
+
+  // 3. Excluir Grupo
+  const handleDeleteGroup = (groupId: string) => {
+    if (confirm('Tem certeza que deseja excluir este grupo inteiro de complementos?')) {
+      setOptionGroups((prev) => prev.filter((g) => g.id !== groupId));
+    }
+  };
+
+  // 4. Salvar Opção (Criar ou Editar valor/nome)
+  const handleSaveOption = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetGroupId || !editingOption?.name?.trim()) return;
+
+    if (editingOption.id) {
+      // Atualizar opção existente
+      setOptionGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== targetGroupId) return g;
+          return {
+            ...g,
+            options: g.options?.map((opt) =>
+              opt.id === editingOption.id
+                ? ({
+                    ...opt,
+                    name: editingOption.name!.trim(),
+                    price: Number(editingOption.price || 0),
+                  } as Option)
+                : opt
+            ),
+          };
+        })
+      );
+    } else {
+      // Adicionar nova opção
+      const newOpt: Option = {
+        id: `opt-${Date.now()}`,
+        group_id: targetGroupId,
+        name: editingOption.name.trim(),
+        price: Number(editingOption.price || 0),
+        is_available: true,
+        max_quantity_per_item: 1,
+        display_order: 10,
+      };
+
+      setOptionGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== targetGroupId) return g;
+          return { ...g, options: [...(g.options || []), newOpt] };
+        })
+      );
+    }
+
+    setIsOptionModalOpen(false);
+    setEditingOption(null);
+    setTargetGroupId(null);
+  };
+
+  // 5. Excluir Opção
+  const handleDeleteOption = (groupId: string, optionId: string) => {
+    if (confirm('Deseja excluir este complemento/adicional?')) {
+      setOptionGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== groupId) return g;
+          return {
+            ...g,
+            options: g.options?.filter((o) => o.id !== optionId),
+          };
+        })
+      );
+    }
   };
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Complementos e Grupos de Opções</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Complementos e Adicionais</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Crie grupos reutilizáveis de tamanhos, frutas, caldas e adicionais nobres para associar aos produtos.
+            Crie novos grupos, altere nomes, edite preços dos adicionais e gerencie a disponibilidade de cada item.
           </p>
         </div>
         <button
@@ -118,7 +161,18 @@ export default function AdminComplementsPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         {optionGroups.map((group) => (
           <div key={group.id} className="card" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '0.75rem',
+                marginBottom: '1rem',
+                borderBottom: '1px solid var(--border-color)',
+                paddingBottom: '0.85rem',
+              }}
+            >
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{group.name}</h3>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -130,58 +184,129 @@ export default function AdminComplementsPage() {
                   type="button"
                   onClick={() => {
                     setTargetGroupId(group.id);
+                    setEditingOption({ name: '', price: 0 });
                     setIsOptionModalOpen(true);
                   }}
-                  className="btn btn-secondary btn-sm"
+                  className="btn btn-primary btn-sm"
                 >
                   <Plus size={14} />
-                  <span>Adicionar Opção</span>
+                  <span>Adicionar Adicional</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingGroup(group);
+                    setIsGroupModalOpen(true);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  title="Editar Grupo"
+                >
+                  <Edit size={14} />
+                  <span>Editar Grupo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteGroup(group.id)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: 'var(--danger)' }}
+                  title="Excluir Grupo"
+                >
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
 
-            {/* Itens do Grupo */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' }}>
-              {group.options?.map((opt) => (
-                <div
-                  key={opt.id}
-                  style={{
-                    backgroundColor: 'var(--bg-tertiary)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '0.75rem 1rem',
-                    border: '1px solid var(--border-color)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block' }}>{opt.name}</span>
-                    <span style={{ fontSize: '0.8rem', color: opt.price > 0 ? 'var(--brand-primary)' : 'var(--text-muted)', fontWeight: 700 }}>
-                      {opt.price > 0 ? `+ R$ ${opt.price.toFixed(2)}` : 'Incluso (Grátis)'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleOptionAvailable(group.id, opt.id)}
-                    className={`badge ${opt.is_available ? 'badge-success' : 'badge-danger'}`}
-                    style={{ cursor: 'pointer', border: 'none', fontSize: '0.75rem' }}
+            {/* Lista de Opções do Grupo */}
+            {group.options && group.options.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
+                {group.options.map((opt) => (
+                  <div
+                    key={opt.id}
+                    style={{
+                      backgroundColor: 'var(--bg-tertiary)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.75rem 1rem',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.5rem',
+                    }}
                   >
-                    {opt.is_available ? 'Disponível' : 'Esgotado'}
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {opt.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.82rem',
+                          color: opt.price > 0 ? 'var(--brand-primary)' : 'var(--text-muted)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {opt.price > 0 ? `+ R$ ${Number(opt.price).toFixed(2)}` : 'Incluso (Grátis)'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleOptionAvailable(group.id, opt.id)}
+                        className={`badge ${opt.is_available ? 'badge-success' : 'badge-danger'}`}
+                        style={{ cursor: 'pointer', border: 'none', fontSize: '0.75rem' }}
+                      >
+                        {opt.is_available ? 'Ativo' : 'Esgotado'}
+                      </button>
+
+                      {/* Editar Nome e Valor */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetGroupId(group.id);
+                          setEditingOption(opt);
+                          setIsOptionModalOpen(true);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.25rem 0.4rem' }}
+                        title="Alterar valor ou nome"
+                      >
+                        <Edit size={13} />
+                      </button>
+
+                      {/* Excluir Opção */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOption(group.id, opt.id)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.25rem 0.4rem', color: 'var(--danger)' }}
+                        title="Excluir complemento"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Nenhum complemento adicionado a este grupo ainda. Clique em "Adicionar Adicional".
+              </p>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Modal Grupo */}
-      {isGroupModalOpen && (
+      {/* Modal Grupo de Opções */}
+      {isGroupModalOpen && editingGroup && (
         <div className="modal-overlay" onClick={() => setIsGroupModalOpen(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Novo Grupo de Opções</h2>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                {editingGroup.id ? 'Editar Grupo' : 'Novo Grupo de Opções'}
+              </h2>
+              <button type="button" onClick={() => setIsGroupModalOpen(false)} className="btn btn-secondary btn-sm">
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={handleSaveGroup} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -233,7 +358,7 @@ export default function AdminComplementsPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Criar Grupo
+                  {editingGroup.id ? 'Salvar Alterações' : 'Criar Grupo'}
                 </button>
               </div>
             </form>
@@ -241,21 +366,26 @@ export default function AdminComplementsPage() {
         </div>
       )}
 
-      {/* Modal Nova Opção */}
-      {isOptionModalOpen && (
+      {/* Modal Criar / Editar Opção (Nome e Preço) */}
+      {isOptionModalOpen && editingOption && (
         <div className="modal-overlay" onClick={() => setIsOptionModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
             <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Adicionar Item / Opção</h2>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+                {editingOption.id ? 'Editar Complemento & Valor' : 'Adicionar Novo Complemento'}
+              </h2>
+              <button type="button" onClick={() => setIsOptionModalOpen(false)} className="btn btn-secondary btn-sm">
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={handleSaveOption} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Nome da Opção *</label>
+                <label className="form-label">Nome do Complemento / Adicional *</label>
                 <input
                   type="text"
                   required
-                  value={newOptionName}
-                  onChange={(e) => setNewOptionName(e.target.value)}
+                  value={editingOption.name || ''}
+                  onChange={(e) => setEditingOption({ ...editingOption, name: e.target.value })}
                   className="form-input"
                   placeholder="Ex: Creme de Ninho Trufado"
                 />
@@ -263,14 +393,23 @@ export default function AdminComplementsPage() {
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Preço Adicional (R$)</label>
-                <input
-                  type="number"
-                  step="0.10"
-                  value={newOptionPrice}
-                  onChange={(e) => setNewOptionPrice(parseFloat(e.target.value) || 0)}
-                  className="form-input"
-                  placeholder="0.00 se for gratuito"
-                />
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--text-muted)' }}>
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={editingOption.price ?? 0}
+                    onChange={(e) => setEditingOption({ ...editingOption, price: parseFloat(e.target.value) || 0 })}
+                    className="form-input"
+                    style={{ paddingLeft: '2.5rem' }}
+                    placeholder="0.00 se for incluso ou gratuito"
+                  />
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  Digite 0 se este complemento não tiver custo adicional.
+                </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
@@ -278,7 +417,7 @@ export default function AdminComplementsPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Adicionar
+                  {editingOption.id ? 'Atualizar Valor' : 'Adicionar ao Grupo'}
                 </button>
               </div>
             </form>

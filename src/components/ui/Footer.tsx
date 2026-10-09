@@ -88,10 +88,9 @@ export function Footer() {
             color: 'var(--text-muted)',
           }}
         >
-          <p>© {new Date().getFullYear()} Açaí Daiane. Todos os direitos reservados.</p>
+          <p>© {new Date().getFullYear()} Açaí da Daiane. Todos os direitos reservados.</p>
           <div style={{ display: 'flex', gap: '1.25rem' }}>
             <Link href="/" style={{ color: 'var(--text-muted)' }}>Cardápio</Link>
-            <Link href="/admin" style={{ color: 'var(--text-muted)' }}>Área Administrativa</Link>
           </div>
         </div>
       </div>

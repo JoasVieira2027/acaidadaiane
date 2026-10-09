@@ -44,20 +44,24 @@ export function Header() {
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div
               style={{
-                width: '38px',
-                height: '38px',
+                width: '44px',
+                height: '44px',
                 borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--brand-primary)',
+                overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#ffffff',
-                fontWeight: 800,
-                fontSize: '1.2rem',
-                letterSpacing: '-0.5px',
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-color)',
+                flexShrink: 0,
               }}
             >
-              AD
+              {/* Logo Oficial Açaí da Daiane */}
+              <img
+                src="/logo.png"
+                alt="Açaí da Daiane"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
             </div>
             <div>
               <span
@@ -70,7 +74,7 @@ export function Header() {
                   lineHeight: 1.1,
                 }}
               >
-                Açaí Daiane
+                Açaí da Daiane
               </span>
               <span
                 style={{
@@ -86,19 +90,10 @@ export function Header() {
           <StoreStatusBadge />
         </div>
 
-        {/* Controles: Idioma, Tema, Admin e Carrinho */}
+        {/* Controles: Idioma, Tema e Carrinho (Painel admin NÃO visível ao cliente) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <LanguageSelector />
           <ThemeToggle />
-
-          <Link
-            href="/admin"
-            className="btn btn-outline btn-sm"
-            title="Painel Administrativo"
-            style={{ padding: '0.45rem', borderRadius: 'var(--radius-full)' }}
-          >
-            <ShieldCheck size={18} />
-          </Link>
 
           <button
             type="button"
