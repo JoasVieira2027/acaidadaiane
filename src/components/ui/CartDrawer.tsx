@@ -217,17 +217,33 @@ export function CartDrawer() {
                     </div>
                   </div>
 
-                  {/* Complementos Selecionados */}
-                  {item.selected_options && item.selected_options.length > 0 && (
-                    <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      {item.selected_options.map((opt, i) => (
-                        <div key={i}>
-                          • {opt.group_name}: {opt.option_name}
-                          {opt.price > 0 && ` (+R$ ${opt.price.toFixed(2)})`}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Complementos Selecionados - agrupados por grupo */}
+                  {item.selected_options && item.selected_options.length > 0 && (() => {
+                    // Agrupar opções pelo nome do grupo
+                    const grouped = item.selected_options.reduce<Record<string, { names: string[]; extraTotal: number }>>((acc, opt) => {
+                      if (!acc[opt.group_name]) acc[opt.group_name] = { names: [], extraTotal: 0 };
+                      const label = opt.quantity > 1 ? `${opt.option_name} ×${opt.quantity}` : opt.option_name;
+                      acc[opt.group_name].names.push(label);
+                      acc[opt.group_name].extraTotal += opt.price * opt.quantity;
+                      return acc;
+                    }, {});
+
+                    return (
+                      <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        {Object.entries(grouped).map(([groupName, { names, extraTotal }]) => (
+                          <div key={groupName} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'baseline' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.03em', flexShrink: 0 }}>
+                              {groupName}:
+                            </span>
+                            <span>
+                              {names.join(', ')}
+                              {extraTotal > 0 && <span style={{ color: 'var(--brand-primary)', fontWeight: 600 }}> (+R$ {extraTotal.toFixed(2)})</span>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {item.notes && (
                     <p style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
