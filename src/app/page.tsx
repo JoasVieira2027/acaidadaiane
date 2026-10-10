@@ -304,14 +304,7 @@ export default function HomePage() {
                 </p>
               </div>
             ) : (
-              <div
-                className="products-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                  gap: '1.5rem',
-                }}
-              >
+              <div className="products-grid">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}

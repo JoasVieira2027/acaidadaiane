@@ -32,34 +32,35 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
       }).format(product.price)
     : null;
 
+  const handleClick = () => {
+    if (product.is_available) {
+      onSelect(product);
+    }
+  };
+
   return (
     <div
-      className="card"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        position: 'relative',
-        opacity: product.is_available ? 1 : 0.75,
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      onClick={handleClick}
+      className={`product-card ${!product.is_available ? 'unavailable' : ''}`}
+      role="button"
+      tabIndex={product.is_available ? 0 : -1}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
       }}
+      aria-label={`Selecionar ${name}`}
     >
-      {/* Imagem do Produto com Badges */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: '190px',
-          backgroundColor: 'var(--bg-tertiary)',
-        }}
-      >
+      {/* Container da Imagem com Badges */}
+      <div className="product-card-img-wrap">
         {product.image_url ? (
           <Image
             src={product.image_url}
             alt={name}
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            style={{ objectFit: 'cover' }}
+            sizes="(max-width: 768px) 110px, (max-width: 1200px) 33vw, 280px"
+            className="product-card-img"
             priority={product.is_featured}
           />
         ) : (
@@ -70,47 +71,50 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--text-muted)',
-              fontSize: '0.85rem',
+              color: 'var(--brand-primary)',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              textAlign: 'center',
+              padding: '0.5rem',
             }}
           >
             Açaí Daiane
           </div>
         )}
 
-        {/* Badges de destaque superiores */}
+        {/* Badges de Destaque */}
         <div
           style={{
             position: 'absolute',
-            top: '0.65rem',
-            left: '0.65rem',
+            top: '0.45rem',
+            left: '0.45rem',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.35rem',
+            gap: '0.25rem',
             zIndex: 2,
           }}
         >
           {hasPromo && (
-            <span className="badge badge-danger">
-              <Tag size={12} />
+            <span className="badge badge-danger" style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem' }}>
+              <Tag size={11} />
               <span>Promoção</span>
             </span>
           )}
           {product.is_bestseller && (
-            <span className="badge badge-warning">
-              <Flame size={12} />
+            <span className="badge badge-warning" style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem' }}>
+              <Flame size={11} />
               <span>Mais Vendido</span>
             </span>
           )}
           {product.is_new && (
-            <span className="badge badge-brand">
-              <Sparkles size={12} />
+            <span className="badge badge-brand" style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem' }}>
+              <Sparkles size={11} />
               <span>Novidade</span>
             </span>
           )}
         </div>
 
-        {/* Overlay caso esteja indisponível */}
+        {/* Overlay se indisponível */}
         {!product.is_available && (
           <div
             style={{
@@ -121,78 +125,35 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'column',
-              gap: '0.4rem',
+              gap: '0.3rem',
               color: '#ffffff',
-              padding: '1rem',
+              padding: '0.5rem',
               textAlign: 'center',
               zIndex: 3,
             }}
           >
-            <Ban size={24} style={{ color: 'var(--danger)' }} />
-            <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>
+            <Ban size={20} style={{ color: 'var(--danger)' }} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
               {t.common.unavailable}
             </span>
           </div>
         )}
       </div>
 
-      {/* Conteúdo textual */}
-      <div
-        style={{
-          padding: '1rem',
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          justifyContent: 'space-between',
-        }}
-      >
+      {/* Conteúdo do Card */}
+      <div className="product-card-body">
         <div>
-          <h3
-            style={{
-              fontSize: '1.05rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              marginBottom: '0.35rem',
-              lineHeight: 1.3,
-            }}
-          >
-            {name}
-          </h3>
-          {description && (
-            <p
-              style={{
-                fontSize: '0.85rem',
-                color: 'var(--text-muted)',
-                lineHeight: 1.45,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                marginBottom: '1rem',
-              }}
-            >
-              {description}
-            </p>
-          )}
+          <h3 className="product-card-title">{name}</h3>
+          {description && <p className="product-card-desc">{description}</p>}
         </div>
 
-        {/* Preço e Botão de Ação */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.5rem',
-            marginTop: 'auto',
-            paddingTop: '0.5rem',
-            borderTop: '1px solid var(--border-color)',
-          }}
-        >
+        {/* Preço e Botão */}
+        <div className="product-card-footer">
           <div>
             {hasPromo && formattedOldPrice && (
               <span
                 style={{
-                  fontSize: '0.75rem',
+                  fontSize: '0.72rem',
                   color: 'var(--text-muted)',
                   textDecoration: 'line-through',
                   display: 'block',
@@ -205,9 +166,10 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             )}
             <span
               style={{
-                fontSize: '1.15rem',
+                fontSize: '1.1rem',
                 fontWeight: 800,
-                color: hasPromo ? 'var(--danger)' : 'var(--text-primary)',
+                color: hasPromo ? 'var(--danger)' : 'var(--brand-primary)',
+                letterSpacing: '-0.02em',
               }}
             >
               {formattedPrice}
@@ -217,12 +179,20 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
           <button
             type="button"
             disabled={!product.is_available}
-            onClick={() => onSelect(product)}
-            className="btn btn-primary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClick();
+            }}
+            className="btn btn-primary btn-sm product-card-btn"
+            style={{
+              borderRadius: 'var(--radius-full)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}
             aria-label={`Personalizar ${name}`}
-            style={{ borderRadius: 'var(--radius-full)', padding: '0.45rem 0.85rem' }}
           >
-            <Plus size={16} />
+            <Plus size={15} />
             <span>{t.menu.selectOptions}</span>
           </button>
         </div>
