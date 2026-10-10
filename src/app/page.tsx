@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Flame, Tag, Sparkles, AlertCircle, Clock, Bike, ShieldCheck, Zap, Store } from 'lucide-react';
+import { Search, Flame, Tag, Sparkles, Clock, Bike, Zap } from 'lucide-react';
 import { Category, Product, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 import { Header } from '@/components/ui/Header';
@@ -132,123 +132,71 @@ export default function HomePage() {
       <Header />
 
       <main className="main-content">
-        {/* Aviso no topo se a loja estiver fechada */}
-        {storeStatus && !storeStatus.isOpen && (
-          <div
-            style={{
-              backgroundColor: 'var(--danger-bg)',
-              color: 'var(--danger)',
-              borderBottom: '1px solid var(--border-color)',
-              padding: '0.85rem 1rem',
-              textAlign: 'center',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-            }}
-          >
-            <AlertCircle size={18} />
-            <span>{storeStatus.message}</span>
-          </div>
-        )}
 
-        {/* Hero Section */}
+        {/* Hero Section compacto e profissional */}
         <section
           style={{
             backgroundColor: 'var(--bg-secondary)',
             borderBottom: '1px solid var(--border-color)',
-            padding: '2.5rem 0',
+            padding: '1.75rem 0 1.5rem',
             textAlign: 'center',
           }}
         >
           <div className="container" style={{ maxWidth: '720px' }}>
-            {/* Badges Operacionais Funcionais */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                marginBottom: '1rem',
-              }}
-            >
-              <span
-                className={`badge ${storeStatus?.isOpen ? 'badge-success' : 'badge-danger'}`}
-                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', fontWeight: 700 }}
-              >
-                {storeStatus?.isOpen ? '🟢 Aberto para Pedidos' : '🔴 Fechado no Momento'}
-              </span>
-
-              <span
-                className="badge badge-brand"
-                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-              >
-                <Bike size={13} />
-                <span>
-                  {settings?.allow_delivery !== false && settings?.allow_pickup !== false
-                    ? 'Delivery & Retirada'
-                    : settings?.allow_delivery !== false
-                    ? 'Apenas Delivery'
-                    : 'Apenas Retirada'}
-                </span>
-              </span>
-
-              <span
-                className="badge badge-info"
-                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-              >
-                <Clock size={13} />
-                <span>30 a 50 min</span>
-              </span>
-
-              <span
-                className="badge"
-                style={{
-                  fontSize: '0.8rem',
-                  padding: '0.35rem 0.75rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                <Zap size={13} style={{ color: 'var(--brand-primary)' }} />
-                <span>Pix Online &amp; Cartão</span>
-              </span>
-            </div>
-
             <h1
               className="hero-title"
               style={{
-                fontSize: '2.1rem',
+                fontSize: '2rem',
                 fontWeight: 900,
                 letterSpacing: '-0.8px',
                 color: 'var(--text-primary)',
-                marginBottom: '0.5rem',
+                marginBottom: '0.35rem',
                 lineHeight: 1.2,
               }}
             >
               {settings?.store_name || 'Açaí da Daiane'}
             </h1>
 
-            <p
+            {/* Linha de info discreta */}
+            <div
               style={{
-                fontSize: '0.95rem',
-                color: 'var(--text-muted)',
-                lineHeight: 1.5,
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.5rem',
                 marginBottom: '1.25rem',
-                maxWidth: '600px',
-                margin: '0 auto 1.25rem auto',
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)',
               }}
             >
-              {storeStatus?.isOpen
-                ? settings?.open_message || 'Faça seu pedido online de forma rápida com montagem personalizada do seu açaí e entrega garantida.'
-                : settings?.closed_message || 'Estamos fora do horário de atendimento. Consulte nossos produtos e retorne em nossos horários de funcionamento!'}
-            </p>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Bike size={13} />
+                {settings?.allow_delivery !== false && settings?.allow_pickup !== false
+                  ? 'Delivery & Retirada'
+                  : settings?.allow_delivery !== false
+                  ? 'Apenas Delivery'
+                  : 'Apenas Retirada'}
+              </span>
+              <span style={{ opacity: 0.4 }}>•</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Clock size={13} />
+                30 a 50 min
+              </span>
+              <span style={{ opacity: 0.4 }}>•</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Zap size={13} style={{ color: 'var(--brand-primary)' }} />
+                Pix & Cartão
+              </span>
+              {storeStatus && !storeStatus.isOpen && storeStatus.nextOpenTime && (
+                <>
+                  <span style={{ opacity: 0.4 }}>•</span>
+                  <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                    Abre às {storeStatus.nextOpenTime}
+                  </span>
+                </>
+              )}
+            </div>
 
             {/* Barra de Busca */}
             <div style={{ position: 'relative', maxWidth: '480px', margin: '0 auto' }}>
