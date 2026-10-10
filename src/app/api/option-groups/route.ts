@@ -57,6 +57,77 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true }, { headers: noStoreHeaders });
     }
 
+    if (body.action === 'clone-group-for-product') {
+      const { groupId, productId } = body;
+      if (!groupId || !productId) {
+        return NextResponse.json({ success: false, message: 'groupId e productId são obrigatórios.' }, { status: 400 });
+      }
+
+      const allGroups = await repository.getOptionGroups();
+      const sourceGroup = allGroups.find((g) => g.id === groupId);
+      if (!sourceGroup) {
+        return NextResponse.json({ success: false, message: 'Grupo não encontrado.' }, { status: 404 });
+      }
+
+      // Cria cópia independente do grupo
+      const newGroupData = {
+        name: `${sourceGroup.name}`,
+        description: sourceGroup.description,
+        is_required: sourceGroup.is_required,
+        min_options: sourceGroup.min_options,
+        max_options: sourceGroup.max_options,
+        display_order: sourceGroup.display_order,
+        is_active: sourceGroup.is_active,
+      };
+
+      const clonedGroup = await repository.saveOptionGroup(newGroupData);
+
+      // Copia todas as opções
+      if (sourceGroup.options && sourceGroup.options.length > 0) {
+        for (const opt of sourceGroup.options) {
+          await repository.saveOption(clonedGroup.id, {
+            name: opt.name,
+            price: opt.price,
+            is_available: opt.is_available,
+            description: opt.description,
+            max_quantity_per_item: opt.max_quantity_per_item,
+            display_order: opt.display_order,
+          });
+        }
+      }
+
+      // Atualiza associação no Supabase se configurado
+      const { createSupabaseAdminClient } = await import('@/lib/supabase/admin');
+      const supabase = createSupabaseAdminClient();
+      if (supabase) {
+        await supabase
+          .from('product_option_groups')
+          .delete()
+          .eq('product_id', productId)
+          .eq('option_group_id', groupId);
+
+        await supabase
+          .from('product_option_groups')
+          .insert([{
+            product_id: productId,
+            option_group_id: clonedGroup.id,
+            display_order: 1,
+          }]);
+      }
+
+      try {
+        revalidatePath('/', 'page');
+        revalidatePath('/admin/produtos', 'page');
+        revalidatePath('/admin/complementos', 'page');
+      } catch {}
+
+      return NextResponse.json({
+        success: true,
+        clonedGroup,
+        message: 'Grupo clonado com sucesso para este produto.',
+      }, { headers: noStoreHeaders });
+    }
+
     // Salvar grupo
     const { group } = body;
     if (!group?.name) {

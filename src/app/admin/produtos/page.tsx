@@ -45,6 +45,10 @@ export default function AdminProductsPage() {
   const [quickOptionPrice, setQuickOptionPrice] = useState('0');
   const [creatingGroup, setCreatingGroup] = useState(false);
 
+  // Edição direta de opções por grupo dentro do produto
+  const [newOptionInputs, setNewOptionInputs] = useState<{ [groupId: string]: { name: string; price: string } }>({});
+  const [cloningGroupId, setCloningGroupId] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -219,6 +223,140 @@ export default function AdminProductsPage() {
       console.error(err);
     } finally {
       setCreatingGroup(false);
+    }
+  };
+
+  // Alterna status ativo/inativo de uma opção
+  const handleToggleOptionAvailable = async (groupId: string, optionId: string, currentAvailable: boolean) => {
+    const group = allGroups.find((g) => g.id === groupId);
+    const opt = group?.options?.find((o) => o.id === optionId);
+    if (!opt) return;
+
+    const updatedOpt = { ...opt, is_available: !currentAvailable };
+
+    // Atualização otimista local
+    setAllGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          options: g.options?.map((o) => (o.id === optionId ? updatedOpt : o)),
+        };
+      })
+    );
+
+    try {
+      await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-option', groupId, option: updatedOpt }),
+      });
+    } catch (err) {
+      console.error(err);
+      loadData();
+    }
+  };
+
+  // Remove opção de um grupo
+  const handleDeleteOption = async (groupId: string, optionId: string) => {
+    if (!confirm('Deseja realmente remover esta opção deste grupo?')) return;
+
+    // Atualização otimista
+    setAllGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          options: g.options?.filter((o) => o.id !== optionId),
+        };
+      })
+    );
+
+    try {
+      await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-option', groupId, optionId }),
+      });
+    } catch (err) {
+      console.error(err);
+      loadData();
+    }
+  };
+
+  // Adiciona nova opção diretamente no grupo
+  const handleAddOptionToGroup = async (groupId: string) => {
+    const input = newOptionInputs[groupId];
+    if (!input?.name?.trim()) return;
+
+    const priceNum = parseFloat(String(input.price || '0').replace(',', '.').trim()) || 0;
+
+    try {
+      const res = await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save-option',
+          groupId,
+          option: {
+            name: input.name.trim(),
+            price: priceNum,
+            is_available: true,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.option) {
+        setAllGroups((prev) =>
+          prev.map((g) => {
+            if (g.id !== groupId) return g;
+            return {
+              ...g,
+              options: [...(g.options || []), data.option],
+            };
+          })
+        );
+        setNewOptionInputs((prev) => ({
+          ...prev,
+          [groupId]: { name: '', price: '0,00' },
+        }));
+      }
+    } catch (err) {
+      console.error(err);
+      loadData();
+    }
+  };
+
+  // Clona o grupo exclusivamente para este produto (para que alterações não afetem outros)
+  const handleMakeGroupExclusive = async (groupId: string) => {
+    if (!editingProduct?.id) {
+      alert('Salve o produto primeiro antes de torná-lo exclusivo.');
+      return;
+    }
+    setCloningGroupId(groupId);
+    try {
+      const res = await fetch('/api/option-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'clone-group-for-product',
+          groupId,
+          productId: editingProduct.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.clonedGroup) {
+        setSelectedGroupIds((prev) =>
+          prev.map((id) => (id === groupId ? data.clonedGroup.id : id))
+        );
+        await loadData();
+        alert('Grupo duplicado com sucesso! Agora as alterações feitas nele serão exclusivas deste produto.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao duplicar grupo.');
+    } finally {
+      setCloningGroupId(null);
     }
   };
 
@@ -798,63 +936,206 @@ export default function AdminProductsPage() {
                           {selectedGroupIds.map((gid) => {
                             const group = allGroups.find((g) => g.id === gid);
                             if (!group) return null;
+                            const isCloning = cloningGroupId === gid;
+                            const linkedCount = products.filter((prod) =>
+                              prod.option_groups?.some((og) => og.id === gid)
+                            ).length;
+                            const optionInput = newOptionInputs[gid] || { name: '', price: '' };
+
                             return (
                               <div
                                 key={gid}
                                 style={{
-                                  padding: '0.75rem 1rem',
+                                  padding: '1rem',
                                   borderRadius: 'var(--radius-md)',
-                                  backgroundColor: 'var(--bg-accent-subtle)',
-                                  border: '1.5px solid var(--brand-primary)',
+                                  backgroundColor: 'var(--bg-secondary)',
+                                  border: '1.5px solid var(--border-color)',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '0.4rem',
+                                  gap: '0.75rem',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
                                 }}
                               >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{group.name}</span>
-                                    <span className={`badge ${group.is_required ? 'badge-danger' : 'badge-brand'}`} style={{ fontSize: '0.7rem' }}>
-                                      {group.is_required ? 'Obrigatório' : 'Opcional'}
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                      (Mín {group.min_options} / Máx {group.max_options})
-                                    </span>
+                                {/* Topo do Grupo */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                      <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>{group.name}</span>
+                                      <span className={`badge ${group.is_required ? 'badge-danger' : 'badge-brand'}`} style={{ fontSize: '0.7rem' }}>
+                                        {group.is_required ? 'Obrigatório' : 'Opcional'}
+                                      </span>
+                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                        (Mín {group.min_options} / Máx {group.max_options})
+                                      </span>
+                                    </div>
+                                    {/* Indicador de Compartilhamento / Exclusividade */}
+                                    <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      {linkedCount > 1 ? (
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#b45309', backgroundColor: '#fef3c7', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+                                          <span>🔗 Compartilhado em {linkedCount} produtos</span>
+                                          {editingProduct?.id && (
+                                            <button
+                                              type="button"
+                                              disabled={isCloning}
+                                              onClick={() => handleMakeGroupExclusive(gid)}
+                                              style={{
+                                                background: '#d97706',
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '3px',
+                                                padding: '0.1rem 0.4rem',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                              }}
+                                              title="Duplica este grupo e opções exclusivamente para este produto, permitindo alterar sem mexer nos outros produtos"
+                                            >
+                                              {isCloning ? 'Duplicando...' : '✂️ Tornar Exclusivo deste Produto'}
+                                            </button>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span style={{ fontSize: '0.72rem', color: '#16a34a', backgroundColor: '#dcfce7', padding: '0.1rem 0.45rem', borderRadius: '4px', fontWeight: 600 }}>
+                                          ⭐ Exclusivo deste produto
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
+
                                   <button
                                     type="button"
                                     onClick={() => toggleGroup(gid)}
                                     className="btn btn-secondary btn-sm"
-                                    style={{ color: 'var(--danger)', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-                                    title="Remover este grupo deste produto (não apaga do sistema)"
+                                    style={{ color: 'var(--danger)', padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                                    title="Remover este grupo deste produto"
                                   >
                                     <X size={13} />
-                                    <span>Desvincular</span>
+                                    <span>Desvincular Grupo</span>
                                   </button>
                                 </div>
-                                {group.options && group.options.length > 0 ? (
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.2rem' }}>
-                                    {group.options.map((opt) => (
-                                      <span
-                                        key={opt.id}
-                                        style={{
-                                          fontSize: '0.75rem',
-                                          padding: '0.2rem 0.5rem',
-                                          backgroundColor: 'var(--bg-primary)',
-                                          borderRadius: 'var(--radius-sm)',
-                                          border: '1px solid var(--border-color)',
-                                          color: 'var(--text-primary)',
-                                        }}
-                                      >
-                                        {opt.name} {opt.price > 0 ? `(+R$ ${Number(opt.price).toFixed(2)})` : '(Grátis)'}
-                                      </span>
-                                    ))}
+
+                                {/* Lista de Opções / Acompanhamentos editáveis */}
+                                <div>
+                                  <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                                    Opções deste Grupo ({group.options?.length || 0}):
+                                  </p>
+
+                                  {group.options && group.options.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                      {group.options.map((opt) => (
+                                        <div
+                                          key={opt.id}
+                                          style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '0.45rem 0.75rem',
+                                            backgroundColor: opt.is_available ? 'var(--bg-tertiary)' : '#fef2f2',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: `1px solid ${opt.is_available ? 'var(--border-color)' : '#fecaca'}`,
+                                            fontSize: '0.825rem',
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ fontWeight: 600, color: opt.is_available ? 'var(--text-primary)' : '#991b1b' }}>
+                                              {opt.name}
+                                            </span>
+                                            <span style={{ color: opt.price > 0 ? 'var(--brand-primary)' : 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem' }}>
+                                              {opt.price > 0 ? `+R$ ${Number(opt.price).toFixed(2)}` : '(Grátis)'}
+                                            </span>
+                                          </div>
+
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            {/* Alternar Ativo / Inativo */}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleToggleOptionAvailable(gid, opt.id, opt.is_available)}
+                                              style={{
+                                                padding: '0.2rem 0.5rem',
+                                                borderRadius: '4px',
+                                                border: 'none',
+                                                fontSize: '0.7rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                backgroundColor: opt.is_available ? '#dcfce7' : '#fee2e2',
+                                                color: opt.is_available ? '#16a34a' : '#dc2626',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                              }}
+                                              title={opt.is_available ? 'Clique para inativar esta opção' : 'Clique para ativar esta opção'}
+                                            >
+                                              {opt.is_available ? '✓ Ativo' : '✕ Inativo'}
+                                            </button>
+
+                                            {/* Remover Opção */}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteOption(gid, opt.id)}
+                                              style={{
+                                                padding: '0.2rem 0.35rem',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--danger)',
+                                                cursor: 'pointer',
+                                                opacity: 0.8,
+                                              }}
+                                              title="Excluir esta opção"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                      Nenhum complemento adicionado neste grupo ainda. Adicione abaixo:
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Formulário Rápido para Adicionar Opção neste Grupo */}
+                                <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-color)' }}>
+                                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <input
+                                      type="text"
+                                      className="form-input"
+                                      placeholder="Nome da nova opção (ex: Morango)..."
+                                      value={optionInput.name}
+                                      onChange={(e) =>
+                                        setNewOptionInputs((prev) => ({
+                                          ...prev,
+                                          [gid]: { ...optionInput, name: e.target.value },
+                                        }))
+                                      }
+                                      style={{ flex: 2, minWidth: '140px', fontSize: '0.8rem', padding: '0.35rem 0.6rem' }}
+                                    />
+                                    <input
+                                      type="text"
+                                      className="form-input"
+                                      placeholder="Preço (ex: 0,00 ou 2,50)"
+                                      value={optionInput.price}
+                                      onChange={(e) =>
+                                        setNewOptionInputs((prev) => ({
+                                          ...prev,
+                                          [gid]: { ...optionInput, price: e.target.value },
+                                        }))
+                                      }
+                                      style={{ width: '90px', fontSize: '0.8rem', padding: '0.35rem 0.6rem' }}
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={!optionInput.name.trim()}
+                                      onClick={() => handleAddOptionToGroup(gid)}
+                                      className="btn btn-primary btn-sm"
+                                      style={{ fontSize: '0.75rem', padding: '0.35rem 0.7rem' }}
+                                    >
+                                      <Plus size={13} />
+                                      <span>+ Adicionar</span>
+                                    </button>
                                   </div>
-                                ) : (
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                    Nenhum complemento adicionado a este grupo ainda.
-                                  </span>
-                                )}
+                                </div>
                               </div>
                             );
                           })}
