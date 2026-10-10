@@ -28,29 +28,55 @@ export default function HomePage() {
   // Modal de produto
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/products', { cache: 'no-store' })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && Array.isArray(data.products)) {
-            setProducts(data.products);
-            if (Array.isArray(data.categories) && data.categories.length > 0) {
-              setCategories(data.categories);
-            }
-          } else {
-            return import('@/lib/data/mockData').then((mod) => {
-              setProducts(mod.initialProducts);
-              setCategories(mod.initialCategories);
-            });
+  // Função de busca de dados reutilizável
+  const fetchData = React.useCallback((isInitial = false) => {
+    const productsReq = fetch('/api/products', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.products)) {
+          setProducts(data.products);
+          if (Array.isArray(data.categories) && data.categories.length > 0) {
+            setCategories(data.categories);
           }
-        })
-        .catch(() => {
+        } else if (isInitial) {
           return import('@/lib/data/mockData').then((mod) => {
             setProducts(mod.initialProducts);
             setCategories(mod.initialCategories);
           });
-        }),
+        }
+      })
+      .catch(() => {
+        if (isInitial) {
+          return import('@/lib/data/mockData').then((mod) => {
+            setProducts(mod.initialProducts);
+            setCategories(mod.initialCategories);
+          });
+        }
+      });
+
+    const statusReq = fetch('/api/store-status', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          if (data.status) setStoreStatus(data.status);
+          if (data.settings) setSettings(data.settings);
+        }
+      })
+      .catch(() => {});
+
+    if (isInitial) {
+      Promise.all([productsReq, statusReq]).finally(() => setLoading(false));
+    } else {
+      Promise.all([productsReq, statusReq]);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Carga inicial
+    fetchData(true);
+
+    // Atualiza status da loja a cada 30 segundos (aberto/fechado)
+    const statusInterval = setInterval(() => {
       fetch('/api/store-status', { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
@@ -59,11 +85,17 @@ export default function HomePage() {
             if (data.settings) setSettings(data.settings);
           }
         })
-        .catch(() => {}),
-    ]).finally(() => {
-      setLoading(false);
-    });
-  }, []);
+        .catch(() => {});
+    }, 30_000);
+
+    // Atualiza produtos/cardápio a cada 2 minutos
+    const productsInterval = setInterval(() => fetchData(false), 120_000);
+
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(productsInterval);
+    };
+  }, [fetchData]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
