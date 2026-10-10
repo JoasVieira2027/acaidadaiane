@@ -73,6 +73,10 @@ export default function AdminHoursPage() {
         if (data.settings) setSettings(data.settings);
         if (data.hours) setHours(data.hours);
         setSavedFeedback(true);
+        try {
+          localStorage.setItem('store_settings_updated_at', Date.now().toString());
+          window.dispatchEvent(new Event('store-settings-updated'));
+        } catch {}
         setTimeout(() => setSavedFeedback(false), 4000);
       } else {
         setErrorMessage(data.message || 'Erro ao salvar alterações.');

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ShoppingBag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
@@ -12,6 +12,37 @@ import { StoreStatusBadge } from './StoreStatusBadge';
 export function Header() {
   const { totalItemCount, subtotal, setIsCartDrawerOpen } = useCart();
   const { t } = useLanguage();
+  const [storeName, setStoreName] = useState('Açaí da Daiane');
+
+  const fetchStoreInfo = () => {
+    fetch('/api/store-status', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings?.store_name) {
+          setStoreName(data.settings.store_name);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchStoreInfo();
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'store_settings_updated_at') fetchStoreInfo();
+    };
+    const handleUpdate = () => fetchStoreInfo();
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('store-settings-updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('store-settings-updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
+  }, []);
 
   const formattedSubtotal = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -28,12 +59,12 @@ export function Header() {
             <div className="header-logo-img">
               <img
                 src="/logo.png"
-                alt="Açaí da Daiane"
+                alt={storeName}
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </div>
             <div className="header-brand-text">
-              <span className="header-store-name">Açaí da Daiane</span>
+              <span className="header-store-name">{storeName}</span>
               <span className="header-store-sub">Cardápio Digital &amp; Pedidos</span>
             </div>
           </Link>

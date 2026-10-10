@@ -12,9 +12,17 @@ export default function OrderPrintPage() {
   const id = (params.id as string) || '';
 
   const [order, setOrder] = useState<Order | null>(null);
+  const [settings, setSettings] = useState<any>(null);
   const [printFormat, setPrintFormat] = useState<'80mm' | '58mm' | 'a4'>('80mm');
 
   useEffect(() => {
+    fetch('/api/store-status', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) setSettings(data.settings);
+      })
+      .catch(() => {});
+
     fetch(`/api/orders/${id}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
@@ -121,9 +129,15 @@ export default function OrderPrintPage() {
       >
         {/* Cabeçalho do Estabelecimento */}
         <div style={{ textAlign: 'center', borderBottom: '1px dashed #000000', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 900, textTransform: 'uppercase' }}>AÇAÍ DAIANE</h2>
-          <p style={{ fontSize: '0.75rem' }}>Av. Conselheiro Aguiar, 1450 - Boa Viagem</p>
-          <p style={{ fontSize: '0.75rem' }}>WhatsApp: (81) 99999-8888</p>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 900, textTransform: 'uppercase' }}>
+            {settings?.store_name || 'AÇAÍ DAIANE'}
+          </h2>
+          <p style={{ fontSize: '0.75rem' }}>
+            {settings?.address_text || 'Av. Conselheiro Aguiar, 1450 - Boa Viagem'}
+          </p>
+          <p style={{ fontSize: '0.75rem' }}>
+            WhatsApp: {settings?.whatsapp_number || '(81) 99999-8888'}
+          </p>
           <p style={{ fontSize: '0.7rem', marginTop: '0.25rem' }}>*** COMPROVANTE INTERNO DO PEDIDO ***</p>
         </div>
 

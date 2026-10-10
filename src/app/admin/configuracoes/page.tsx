@@ -46,6 +46,10 @@ export default function AdminSettingsPage() {
       if (data.success) {
         if (data.settings) setSettings(data.settings);
         setSavedFeedback(true);
+        try {
+          localStorage.setItem('store_settings_updated_at', Date.now().toString());
+          window.dispatchEvent(new Event('store-settings-updated'));
+        } catch {}
         setTimeout(() => setSavedFeedback(false), 4000);
       } else {
         setErrorMessage(data.message || 'Erro ao salvar configurações.');
@@ -146,7 +150,25 @@ export default function AdminSettingsPage() {
               value={settings.address_text}
               onChange={(e) => setSettings({ ...settings, address_text: e.target.value })}
               className="form-input"
+              placeholder="Ex: Av. Conselheiro Aguiar, 1450 - Boa Viagem, Recife - PE"
             />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Exibido no rodapé do site e nos comprovantes de impressão.
+            </span>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '1rem', marginBottom: 0 }}>
+            <label className="form-label">Slogan / Descrição do Rodapé</label>
+            <textarea
+              rows={2}
+              value={settings.open_message}
+              onChange={(e) => setSettings({ ...settings, open_message: e.target.value })}
+              className="form-textarea"
+              placeholder="O açaí artesanal mais cremoso da região, preparado com ingredientes selecionados e entrega rápida e segura."
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Texto de apresentação exibido logo abaixo do nome da marca no rodapé do site.
+            </span>
           </div>
         </div>
 
