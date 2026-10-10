@@ -1,13 +1,19 @@
 import { Order } from './types';
 
 /**
- * Formata um valor numérico para a moeda brasileira (R$)
+ * Formata um valor numérico para a moeda brasileira (R$) com tolerância a tipos
  */
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+function formatCurrency(value: any): string {
+  const num = typeof value === 'number' ? value : parseFloat(String(value || 0));
+  const safeNum = isNaN(num) ? 0 : num;
+  try {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(safeNum);
+  } catch {
+    return `R$ ${safeNum.toFixed(2).replace('.', ',')}`;
+  }
 }
 
 /**
@@ -50,21 +56,32 @@ function getPaymentStatusLabel(status: string): string {
  * Gera o texto do pedido formatado para o WhatsApp sem emojis, limpo e profissional
  */
 export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí Daiane'): string {
-  const dateFormatted = new Date(order.created_at).toLocaleString('pt-BR', {
-    timeZone: 'America/Recife',
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
+  let dateFormatted = '';
+  try {
+    const rawDate = order.created_at ? String(order.created_at).replace(' ', 'T') : '';
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      dateFormatted = d.toLocaleString('pt-BR', {
+        timeZone: 'America/Recife',
+        dateStyle: 'short',
+        timeStyle: 'short',
+      });
+    }
+  } catch {
+    dateFormatted = '';
+  }
 
   const lines: string[] = [];
 
   lines.push(`*NOVO PEDIDO - ${storeName.toUpperCase()}*`);
-  lines.push(`Pedido: #${order.order_code}`);
-  lines.push(`Data e Horário: ${dateFormatted}`);
+  lines.push(`Pedido: #${order.order_code || 'PEDIDO'}`);
+  if (dateFormatted) {
+    lines.push(`Data e Horário: ${dateFormatted}`);
+  }
   lines.push('----------------------------------------');
   lines.push('*DADOS DO CLIENTE*');
-  lines.push(`Nome: ${order.customer_name}`);
-  lines.push(`Telefone: ${order.customer_phone}`);
+  lines.push(`Nome: ${order.customer_name || 'Cliente'}`);
+  lines.push(`Telefone: ${order.customer_phone || ''}`);
   lines.push(`Modalidade: ${order.order_type === 'delivery' ? 'Entrega em Domicílio' : 'Retirada no Balcão'}`);
 
   if (order.order_type === 'delivery') {
@@ -81,15 +98,27 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
   lines.push('----------------------------------------');
   lines.push('*ITENS DO PEDIDO*');
 
-  if (order.items && order.items.length > 0) {
+  if (order.items && Array.isArray(order.items) && order.items.length > 0) {
     order.items.forEach((item, index) => {
-      lines.push(`${index + 1}. ${item.quantity}x ${item.product_name} - ${formatCurrency(item.total_price)}`);
+      const itemTotal = typeof item.total_price === 'number' ? item.total_price : parseFloat(String(item.total_price || 0));
+      lines.push(`${index + 1}. ${item.quantity || 1}x ${item.product_name || 'Item'} - ${formatCurrency(itemTotal)}`);
 
-      if (item.selected_options && item.selected_options.length > 0) {
-        item.selected_options.forEach((opt) => {
-          const optPriceStr = opt.price > 0 ? ` (+${formatCurrency(opt.price * (opt.quantity || 1))})` : '';
-          const optQtyStr = opt.quantity && opt.quantity > 1 ? `${opt.quantity}x ` : '';
-          lines.push(`   - ${opt.group_name}: ${optQtyStr}${opt.option_name}${optPriceStr}`);
+      let selectedOpts = item.selected_options;
+      if (typeof selectedOpts === 'string') {
+        try {
+          selectedOpts = JSON.parse(selectedOpts);
+        } catch {
+          selectedOpts = [];
+        }
+      }
+
+      if (Array.isArray(selectedOpts) && selectedOpts.length > 0) {
+        selectedOpts.forEach((opt: any) => {
+          const optPrice = typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price || 0));
+          const optQty = typeof opt.quantity === 'number' ? opt.quantity : parseInt(String(opt.quantity || 1), 10);
+          const optPriceStr = optPrice > 0 ? ` (+${formatCurrency(optPrice * optQty)})` : '';
+          const optQtyStr = optQty > 1 ? `${optQty}x ` : '';
+          lines.push(`   - ${opt.group_name || 'Opção'}: ${optQtyStr}${opt.option_name || ''}${optPriceStr}`);
         });
       }
 
@@ -103,12 +132,14 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
   lines.push('*RESUMO FINANCEIRO*');
   lines.push(`Subtotal: ${formatCurrency(order.subtotal)}`);
 
-  if (order.discount_amount > 0) {
-    lines.push(`Cupom de Desconto (${order.coupon_code || 'Aplicado'}): -${formatCurrency(order.discount_amount)}`);
+  const disc = typeof order.discount_amount === 'number' ? order.discount_amount : parseFloat(String(order.discount_amount || 0));
+  if (disc > 0) {
+    lines.push(`Cupom de Desconto (${order.coupon_code || 'Aplicado'}): -${formatCurrency(disc)}`);
   }
 
   if (order.order_type === 'delivery') {
-    lines.push(`Taxa de Entrega: ${order.delivery_fee === 0 ? 'Grátis' : formatCurrency(order.delivery_fee)}`);
+    const fee = typeof order.delivery_fee === 'number' ? order.delivery_fee : parseFloat(String(order.delivery_fee || 0));
+    lines.push(`Taxa de Entrega: ${fee === 0 ? 'Grátis' : formatCurrency(fee)}`);
   }
 
   lines.push(`*VALOR TOTAL: ${formatCurrency(order.total_amount)}*`);
@@ -133,7 +164,7 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
  * Cria o link direto para iniciar a conversa no WhatsApp com a mensagem pronta
  */
 export function getWhatsAppShareUrl(phoneNumber: string, message: string): string {
-  const cleanPhone = phoneNumber.replace(/\D/g, '');
-  const encodedText = encodeURIComponent(message);
+  const cleanPhone = (phoneNumber || '').replace(/\D/g, '');
+  const encodedText = encodeURIComponent(message || '');
   return `https://wa.me/${cleanPhone}?text=${encodedText}`;
 }

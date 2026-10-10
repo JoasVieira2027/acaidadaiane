@@ -115,9 +115,16 @@ export function CheckoutModal() {
       }
 
       // Limpar carrinho e redirecionar para a página do pedido
-      clearCart();
-      setIsCheckoutModalOpen(false);
-      router.push(`/pedido/${data.order.order_code}`);
+      const targetCode = data.order?.order_code || data.order?.id;
+      if (targetCode) {
+        clearCart();
+        setIsCheckoutModalOpen(false);
+        router.push(`/pedido/${targetCode}`);
+      } else {
+        setErrorMsg('Pedido registrado, mas não foi possível carregar os detalhes. Verifique em Acompanhamento.');
+        setLoading(false);
+        submittingRef.current = false;
+      }
     } catch {
       setErrorMsg('Falha de conexão com o servidor. Verifique sua internet.');
       setLoading(false);

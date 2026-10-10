@@ -31,6 +31,29 @@ const statusSteps: { key: OrderStatus; label: string }[] = [
   { key: 'completed', label: 'Concluído' },
 ];
 
+const toNum = (val: any): number => {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (!val) return 0;
+  const n = parseFloat(String(val).replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+};
+
+const formatPrice = (val: any): string => {
+  return toNum(val).toFixed(2);
+};
+
+const formatOrderDate = (val: any): string => {
+  try {
+    const raw = val ? String(val).replace(' ', 'T') : '';
+    const d = new Date(raw);
+    return !isNaN(d.getTime())
+      ? d.toLocaleString('pt-BR', { timeZone: 'America/Recife' })
+      : '';
+  } catch {
+    return '';
+  }
+};
+
 export default function OrderTrackingPage() {
   const params = useParams();
   const code = (params.code as string) || '';
@@ -89,37 +112,69 @@ export default function OrderTrackingPage() {
     return () => clearInterval(interval);
   }, [code, fetchOrder, order?.payment_method, order?.payment_status]);
 
-  // Garante que o QR code seja gerado e exibido
+  // Garante que o QR code seja gerado e exibido com segurança
   useEffect(() => {
     if (!order?.payment_details) return;
 
-    const base64 = order.payment_details.qr_code_base64;
-    const copiaECola = order.payment_details.pix_copia_e_cola;
+    try {
+      const base64 = order.payment_details.qr_code_base64;
+      const copiaECola = order.payment_details.pix_copia_e_cola;
 
-    if (base64 && base64.length > 20) {
-      const formatted = base64.startsWith('data:image')
-        ? base64
-        : `data:image/png;base64,${base64}`;
-      setQrCodeDataUrl(formatted);
-    } else if (copiaECola) {
-      QRCode.toDataURL(copiaECola, {
-        margin: 1,
-        width: 200,
-        color: {
-          dark: '#1e082b',
-          light: '#ffffff',
-        },
-      })
-        .then((url) => setQrCodeDataUrl(url))
-        .catch((err) => console.error('Erro ao gerar QR code local:', err));
+      if (base64 && base64.length > 20) {
+        const formatted = base64.startsWith('data:image')
+          ? base64
+          : `data:image/png;base64,${base64}`;
+        setQrCodeDataUrl(formatted);
+      } else if (copiaECola) {
+        QRCode.toDataURL(copiaECola, {
+          margin: 1,
+          width: 200,
+          color: {
+            dark: '#1e082b',
+            light: '#ffffff',
+          },
+        })
+          .then((url) => setQrCodeDataUrl(url))
+          .catch((err) => console.error('Erro ao gerar QR code local:', err));
+      }
+    } catch (e) {
+      console.error('Exceção ao gerar QR code:', e);
     }
   }, [order?.payment_details]);
 
-  const handleCopyPix = () => {
-    if (order?.payment_details?.pix_copia_e_cola) {
-      navigator.clipboard.writeText(order.payment_details.pix_copia_e_cola);
+  const copyFallback = (text: string) => {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
+    } catch {}
+  };
+
+  const handleCopyPix = () => {
+    if (order?.payment_details?.pix_copia_e_cola) {
+      const text = order.payment_details.pix_copia_e_cola;
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 3000);
+          }).catch(() => {
+            copyFallback(text);
+          });
+        } else {
+          copyFallback(text);
+        }
+      } catch {
+        copyFallback(text);
+      }
     }
   };
 
@@ -203,14 +258,14 @@ export default function OrderTrackingPage() {
                 {order.customer_name}, seu pedido foi registrado!
               </h1>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                {new Date(order.created_at).toLocaleString('pt-BR', { timeZone: 'America/Recife' })}
+                {formatOrderDate(order.created_at)}
               </p>
             </div>
 
             <div style={{ textAlign: 'right' }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block' }}>Total</span>
               <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--brand-primary)' }}>
-                R$ {order.total_amount.toFixed(2)}
+                R$ {formatPrice(order.total_amount)}
               </span>
             </div>
           </div>
@@ -311,7 +366,7 @@ export default function OrderTrackingPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
                     <div>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Valor a Pagar via Pix:</span>
-                      <strong style={{ fontSize: '1.25rem', color: 'var(--brand-primary)' }}>R$ {order.total_amount.toFixed(2)}</strong>
+                      <strong style={{ fontSize: '1.25rem', color: 'var(--brand-primary)' }}>R$ {formatPrice(order.total_amount)}</strong>
                     </div>
                     <button
                       type="button"
@@ -406,7 +461,7 @@ export default function OrderTrackingPage() {
             </div>
           )}
 
-          {/* Botão de Envio para WhatsApp Comercial - Liberado somente após Pix ser pago */}
+          {/* Botão de Envio para WhatsApp Comercial */}
           <div style={{ marginBottom: '1.5rem' }}>
             {isPixPending ? (
               <div
@@ -477,40 +532,48 @@ export default function OrderTrackingPage() {
               Itens Comprados
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {order.items?.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--bg-tertiary)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700 }}>
-                      {item.quantity}x {item.product_name}
+              {order.items?.map((item) => {
+                let opts = item.selected_options;
+                if (typeof opts === 'string') {
+                  try { opts = JSON.parse(opts); } catch { opts = []; }
+                }
+                if (!Array.isArray(opts)) opts = [];
+
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700 }}>
+                        {item.quantity}x {item.product_name}
+                      </div>
+                      {opts.length > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                          {opts.map((opt: any, i: number) => (
+                            <span key={i} style={{ display: 'block' }}>
+                              • {opt.group_name || 'Opção'}: {opt.option_name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {item.item_notes && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '0.2rem' }}>
+                          Obs: {item.item_notes}
+                        </div>
+                      )}
                     </div>
-                    {item.selected_options && item.selected_options.length > 0 && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                        {item.selected_options.map((opt, i) => (
-                          <span key={i} style={{ display: 'block' }}>
-                            • {opt.group_name}: {opt.option_name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {item.item_notes && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '0.2rem' }}>
-                        Obs: {item.item_notes}
-                      </div>
-                    )}
+                    <span style={{ fontWeight: 700 }}>R$ {formatPrice(item.total_price)}</span>
                   </div>
-                  <span style={{ fontWeight: 700 }}>R$ {item.total_price.toFixed(2)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Resumo da Cobrança */}
@@ -527,18 +590,18 @@ export default function OrderTrackingPage() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
-                <span>R$ {order.subtotal.toFixed(2)}</span>
+                <span>R$ {formatPrice(order.subtotal)}</span>
               </div>
-              {order.discount_amount > 0 && (
+              {toNum(order.discount_amount) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--success)' }}>
                   <span>Desconto ({order.coupon_code || 'Cupom'})</span>
-                  <span>- R$ {order.discount_amount.toFixed(2)}</span>
+                  <span>- R$ {formatPrice(order.discount_amount)}</span>
                 </div>
               )}
               {order.order_type === 'delivery' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Taxa de Entrega ({order.neighborhood_name})</span>
-                  <span>{order.delivery_fee === 0 ? 'Grátis' : `R$ ${order.delivery_fee.toFixed(2)}`}</span>
+                  <span>{toNum(order.delivery_fee) === 0 ? 'Grátis' : `R$ ${formatPrice(order.delivery_fee)}`}</span>
                 </div>
               )}
               <div
@@ -553,7 +616,7 @@ export default function OrderTrackingPage() {
                 }}
               >
                 <span>Total</span>
-                <span>R$ {order.total_amount.toFixed(2)}</span>
+                <span>R$ {formatPrice(order.total_amount)}</span>
               </div>
             </div>
           </div>

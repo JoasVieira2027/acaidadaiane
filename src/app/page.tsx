@@ -34,9 +34,11 @@ export default function HomePage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.products)) {
-          setProducts(data.products);
-          if (Array.isArray(data.categories) && data.categories.length > 0) {
-            setCategories(data.categories);
+          const sortedCats = [...(data.categories || [])].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+          const sortedProds = [...(data.products || [])].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+          setProducts(sortedProds);
+          if (sortedCats.length > 0) {
+            setCategories(sortedCats);
           }
         } else if (isInitial) {
           return import('@/lib/data/mockData').then((mod) => {
@@ -124,7 +126,7 @@ export default function HomePage() {
       }
 
       return true;
-    });
+    }).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }, [products, selectedCategory, activeHighlight, searchQuery]);
 
   return (
@@ -340,6 +342,53 @@ export default function HomePage() {
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                   Tente alterar os filtros de busca ou escolher outra categoria.
                 </p>
+              </div>
+            ) : selectedCategory === 'all' && !searchQuery.trim() && activeHighlight === 'all' ? (
+              // Agrupamento por Categoria com Títulos Elegantes (ex: AÇAÍ E CREMES, SORVETES)
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                {categories.map((cat) => {
+                  const catProducts = products
+                    .filter((p) => p.category_id === cat.id && p.is_available !== false)
+                    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+                  if (catProducts.length === 0) return null;
+
+                  return (
+                    <div key={cat.id} id={`cat-${cat.id}`}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          marginBottom: '1.25rem',
+                        }}
+                      >
+                        <h2
+                          style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 900,
+                            letterSpacing: '-0.3px',
+                            color: 'var(--text-primary)',
+                            textTransform: 'uppercase',
+                            margin: 0,
+                          }}
+                        >
+                          {localize(cat, 'name')}
+                        </h2>
+                        <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)', opacity: 0.6 }} />
+                      </div>
+                      <div className="products-grid">
+                        {catProducts.map((product) => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            onSelect={(p) => setSelectedProduct(p)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="products-grid">

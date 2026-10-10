@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus, Edit, Trash2, Copy, Tag, Flame, Sparkles, X,
   ImageIcon, Upload, Link2, Link2Off, ChevronDown, ChevronUp,
-  AlertCircle, Check, Loader2,
+  AlertCircle, Check, Loader2, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { Product, Category, OptionGroup } from '@/lib/types';
 
@@ -14,6 +14,7 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<ProductWithMeta[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [allGroups, setAllGroups] = useState<OptionGroup[]>([]);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +56,16 @@ export default function AdminProductsPage() {
       const res = await fetch('/api/products', { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
-        setProducts(data.products || []);
-        setCategories(data.categories || []);
+        const cats: Category[] = (data.categories || []).sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+        const prods: ProductWithMeta[] = (data.products || []).sort((a: any, b: any) => {
+          const catA = cats.find((c) => c.id === a.category_id);
+          const catB = cats.find((c) => c.id === b.category_id);
+          const catDiff = (catA?.display_order ?? 0) - (catB?.display_order ?? 0);
+          if (catDiff !== 0) return catDiff;
+          return (a.display_order ?? 0) - (b.display_order ?? 0);
+        });
+        setProducts(prods);
+        setCategories(cats);
         setAllGroups(data.optionGroups || []);
       }
     } catch {
@@ -68,12 +77,72 @@ export default function AdminProductsPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Reordenação de produtos dentro da mesma categoria
+  const handleMoveProduct = async (p: ProductWithMeta, direction: 'up' | 'down') => {
+    const targetCatId = p.category_id;
+    const sameCatProducts = products
+      .filter((item) => item.category_id === targetCatId)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+    const currentIndex = sameCatProducts.findIndex((item) => item.id === p.id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sameCatProducts.length) return;
+
+    const updated = [...sameCatProducts];
+    const temp = updated[currentIndex];
+    updated[currentIndex] = updated[targetIndex];
+    updated[targetIndex] = temp;
+
+    const reorderedList = updated.map((item, idx) => ({
+      id: item.id,
+      display_order: idx + 1,
+    }));
+
+    // Atualiza estado local imediatamente
+    setProducts((prev) =>
+      prev
+        .map((item) => {
+          const found = reorderedList.find((r) => r.id === item.id);
+          return found ? { ...item, display_order: found.display_order } : item;
+        })
+        .sort((a, b) => {
+          const catA = categories.find((c) => c.id === a.category_id);
+          const catB = categories.find((c) => c.id === b.category_id);
+          const catDiff = (catA?.display_order ?? 0) - (catB?.display_order ?? 0);
+          if (catDiff !== 0) return catDiff;
+          return (a.display_order ?? 0) - (b.display_order ?? 0);
+        })
+    );
+
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reorder', products: reorderedList }),
+      });
+    } catch (err) {
+      console.error('Erro ao salvar nova ordem do produto:', err);
+      loadData();
+    }
+  };
+
   // Abre modal para novo produto
   const openCreate = () => {
+    const defaultCatId = selectedCategoryFilter !== 'all' ? selectedCategoryFilter : (categories[0]?.id || '');
+    const currentCatCount = products.filter((p) => p.category_id === defaultCatId).length;
     setEditingProduct({
-      name: '', category_id: categories[0]?.id || '',
-      price: 15, is_available: true, allow_notes: true,
-      is_promo_active: false, is_bestseller: false, is_new: false, is_featured: false,
+      name: '',
+      category_id: defaultCatId,
+      price: 15,
+      is_available: true,
+      allow_notes: true,
+      display_order: currentCatCount + 1,
+      is_promo_active: false,
+      is_bestseller: false,
+      is_new: false,
+      is_featured: false,
     });
     setSelectedGroupIds([]);
     setImagePreview(null);
@@ -482,6 +551,35 @@ export default function AdminProductsPage() {
         </div>
       )}
 
+      {/* Filtro por Categoria */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '0.25rem' }}>
+          Filtrar Categoria:
+        </span>
+        <button
+          type="button"
+          onClick={() => setSelectedCategoryFilter('all')}
+          className={`btn btn-sm ${selectedCategoryFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderRadius: 'var(--radius-full)' }}
+        >
+          Todas ({products.length})
+        </button>
+        {categories.map((c) => {
+          const count = products.filter((p) => p.category_id === c.id).length;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedCategoryFilter(c.id)}
+              className={`btn btn-sm ${selectedCategoryFilter === c.id ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ borderRadius: 'var(--radius-full)' }}
+            >
+              {c.name} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Tabela */}
       <div className="admin-table-wrap">
         {loading ? (
@@ -493,6 +591,7 @@ export default function AdminProductsPage() {
           <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <th style={{ padding: '0.75rem 0.6rem', textAlign: 'center', width: '85px' }}>Ordem</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Produto</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Categoria</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Preço</th>
@@ -503,66 +602,114 @@ export default function AdminProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {products.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Nenhum produto cadastrado. Clique em "Novo Produto" para começar.
-                  </td>
-                </tr>
-              ) : products.map((p) => (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.1s' }}>
-                  <td style={{ padding: '0.9rem 1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                      {p.image_url ? (
-                        <img src={p.image_url} alt={p.name} style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
-                      ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border-color)' }}>
-                          <ImageIcon size={18} style={{ color: 'var(--text-muted)' }} />
+              {(() => {
+                const filtered = selectedCategoryFilter === 'all'
+                  ? products
+                  : products.filter((p) => p.category_id === selectedCategoryFilter);
+
+                if (filtered.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        Nenhum produto cadastrado nesta categoria. Clique em "Novo Produto" para começar.
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filtered.map((p) => {
+                  const sameCat = products
+                    .filter((x) => x.category_id === p.category_id)
+                    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+                  const catIndex = sameCat.findIndex((x) => x.id === p.id);
+                  const isFirst = catIndex === 0;
+                  const isLast = catIndex === sameCat.length - 1;
+
+                  return (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.1s' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--brand-primary)', minWidth: '22px' }}>
+                            #{catIndex + 1}
+                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <button
+                              type="button"
+                              disabled={isFirst}
+                              onClick={() => handleMoveProduct(p, 'up')}
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '2px 4px', height: 'auto', minHeight: 'unset', opacity: isFirst ? 0.3 : 1 }}
+                              title="Subir posição (fica antes no cardápio)"
+                            >
+                              <ArrowUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLast}
+                              onClick={() => handleMoveProduct(p, 'down')}
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '2px 4px', height: 'auto', minHeight: 'unset', opacity: isLast ? 0.3 : 1 }}
+                              title="Descer posição (fica depois no cardápio)"
+                            >
+                              <ArrowDown size={12} />
+                            </button>
+                          </div>
                         </div>
-                      )}
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>
-                          {p.description ? p.description.slice(0, 40) + (p.description.length > 40 ? '…' : '') : ''}
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          {p.image_url ? (
+                            <img src={p.image_url} alt={p.name} style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-color)' }} />
+                          ) : (
+                            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border-color)' }}>
+                              <ImageIcon size={18} style={{ color: 'var(--text-muted)' }} />
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                              {p.description ? p.description.slice(0, 40) + (p.description.length > 40 ? '…' : '') : ''}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ padding: '0.9rem 1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    {p.category_name || categories.find(c => c.id === p.category_id)?.name || '—'}
-                  </td>
-                  <td style={{ padding: '0.9rem 1rem', fontWeight: 700, fontSize: '0.9rem' }}>
-                    R$ {Number(p.price || 0).toFixed(2).replace('.', ',')}
-                  </td>
-                  <td style={{ padding: '0.9rem 1rem' }}>
-                    {p.is_promo_active && p.promotional_price !== null && p.promotional_price !== undefined ? (
-                      <span className="badge badge-danger">R$ {Number(p.promotional_price).toFixed(2).replace('.', ',')}</span>
-                    ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>—</span>}
-                  </td>
-                  <td style={{ padding: '0.9rem 1rem' }}>
-                    {p.option_groups && p.option_groups.length > 0 ? (
-                      <span className="badge badge-brand">{p.option_groups.length} grupo{p.option_groups.length > 1 ? 's' : ''}</span>
-                    ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum</span>}
-                  </td>
-                  <td style={{ padding: '0.9rem 1rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAvailable(p)}
-                      className={`badge ${p.is_available ? 'badge-success' : 'badge-danger'}`}
-                      style={{ cursor: 'pointer', border: 'none', background: 'none' }}
-                    >
-                      {p.is_available ? 'Disponível' : 'Indisponível'}
-                    </button>
-                  </td>
-                  <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
-                      <button type="button" onClick={() => openEdit(p)} className="btn btn-secondary btn-sm" title="Editar"><Edit size={14} /></button>
-                      <button type="button" onClick={() => handleDuplicate(p)} className="btn btn-secondary btn-sm" title="Duplicar"><Copy size={14} /></button>
-                      <button type="button" onClick={() => handleDelete(p.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} title="Excluir"><Trash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                        {p.category_name || categories.find(c => c.id === p.category_id)?.name || '—'}
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem', fontWeight: 700, fontSize: '0.9rem' }}>
+                        R$ {Number(p.price || 0).toFixed(2).replace('.', ',')}
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        {p.is_promo_active && p.promotional_price !== null && p.promotional_price !== undefined ? (
+                          <span className="badge badge-danger">R$ {Number(p.promotional_price).toFixed(2).replace('.', ',')}</span>
+                        ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        {p.option_groups && p.option_groups.length > 0 ? (
+                          <span className="badge badge-brand">{p.option_groups.length} grupo{p.option_groups.length > 1 ? 's' : ''}</span>
+                        ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum</span>}
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAvailable(p)}
+                          className={`badge ${p.is_available ? 'badge-success' : 'badge-danger'}`}
+                          style={{ cursor: 'pointer', border: 'none', background: 'none' }}
+                        >
+                          {p.is_available ? 'Disponível' : 'Indisponível'}
+                        </button>
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                          <button type="button" onClick={() => openEdit(p)} className="btn btn-secondary btn-sm" title="Editar"><Edit size={14} /></button>
+                          <button type="button" onClick={() => handleDuplicate(p)} className="btn btn-secondary btn-sm" title="Duplicar"><Copy size={14} /></button>
+                          <button type="button" onClick={() => handleDelete(p.id)} className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }} title="Excluir"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
         )}
@@ -626,7 +773,7 @@ export default function AdminProductsPage() {
                       />
                     </div>
 
-                    <div className="checkout-grid-2">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label">Categoria *</label>
                         <select
@@ -647,6 +794,19 @@ export default function AdminProductsPage() {
                           value={editingProduct.price ?? ''}
                           onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value as any })}
                           placeholder="Ex: 15,90 ou 0,10"
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label">Ordem / Posição *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          className="form-input"
+                          value={editingProduct.display_order ?? 1}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, display_order: parseInt(e.target.value, 10) || 1 })}
+                          placeholder="Ex: 1"
+                          title="Posição de exibição deste produto na categoria (1 para primeiro, 2 para segundo, etc.)"
                         />
                       </div>
                     </div>

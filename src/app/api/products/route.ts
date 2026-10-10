@@ -70,6 +70,17 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // Reordenação em lote de produtos
+    if (body.action === 'reorder' && Array.isArray(body.products)) {
+      await repository.updateProductsOrder(body.products);
+      try {
+        revalidatePath('/', 'page');
+        revalidatePath('/admin/produtos', 'page');
+      } catch {}
+      return NextResponse.json({ success: true }, { headers: noStoreHeaders });
+    }
+
     const { product, option_group_ids } = body;
 
     if (!product?.name || product.price === undefined) {

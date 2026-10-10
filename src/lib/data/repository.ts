@@ -47,6 +47,47 @@ if (process.env.NODE_ENV !== 'production') {
   (global as any).__ACAI_STORE__ = globalStore;
 }
 
+function normalizeOrder(order: any): Order {
+  if (!order) return order;
+  const parseNum = (v: any) => {
+    if (typeof v === 'number') return isNaN(v) ? 0 : v;
+    if (!v) return 0;
+    const n = parseFloat(String(v));
+    return isNaN(n) ? 0 : n;
+  };
+
+  let rawItems = order.items;
+  if (typeof rawItems === 'string') {
+    try { rawItems = JSON.parse(rawItems); } catch { rawItems = []; }
+  }
+  if (!Array.isArray(rawItems)) rawItems = [];
+
+  const items = rawItems.map((it: any) => {
+    let selectedOpts = it.selected_options;
+    if (typeof selectedOpts === 'string') {
+      try { selectedOpts = JSON.parse(selectedOpts); } catch { selectedOpts = []; }
+    }
+    if (!Array.isArray(selectedOpts)) selectedOpts = [];
+
+    return {
+      ...it,
+      unit_price: parseNum(it.unit_price),
+      total_price: parseNum(it.total_price),
+      quantity: Number(it.quantity || 1),
+      selected_options: selectedOpts,
+    };
+  });
+
+  return {
+    ...order,
+    subtotal: parseNum(order.subtotal),
+    discount_amount: parseNum(order.discount_amount),
+    delivery_fee: parseNum(order.delivery_fee),
+    total_amount: parseNum(order.total_amount),
+    items,
+  };
+}
+
 export const repository = {
   // CONFIGURAÇÕES
   async getSettings(): Promise<StoreSettings> {
@@ -449,6 +490,27 @@ export const repository = {
     return true;
   },
 
+  async updateProductsOrder(items: { id: string; display_order: number }[]): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        for (const item of items) {
+          await supabase
+            .from('products')
+            .update({ display_order: Number(item.display_order), updated_at: new Date().toISOString() })
+            .eq('id', item.id);
+        }
+      } catch (err) {
+        console.error('Erro updateProductsOrder Supabase:', err);
+      }
+    }
+    for (const item of items) {
+      const p = globalStore.products.find((prod: Product) => prod.id === item.id);
+      if (p) p.display_order = Number(item.display_order);
+    }
+    return true;
+  },
+
   // BAIRROS
   async getNeighborhoods(): Promise<Neighborhood[]> {
     const supabase = createSupabaseAdminClient();
@@ -677,11 +739,12 @@ export const repository = {
     const supabase = createSupabaseAdminClient();
     if (supabase) {
       const { data } = await supabase.from('orders').select('*, items:order_items(*)').order('created_at', { ascending: false });
-      if (data) return data;
+      if (data) return data.map(normalizeOrder);
     }
-    return [...globalStore.orders].sort(
+    const inMem = [...globalStore.orders].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+    return inMem.map(normalizeOrder);
   },
 
   async getOrderByCode(orderCode: string): Promise<Order | null> {
@@ -692,10 +755,11 @@ export const repository = {
         .select('*, items:order_items(*)')
         .eq('order_code', orderCode)
         .maybeSingle();
-      if (data) return data;
+      if (data) return normalizeOrder(data);
     }
     const orders = await this.getOrders();
-    return orders.find((o) => o.order_code.toUpperCase() === orderCode.toUpperCase()) || null;
+    const found = orders.find((o) => o.order_code.toUpperCase() === orderCode.toUpperCase()) || null;
+    return found ? normalizeOrder(found) : null;
   },
 
   async getOrderById(orderId: string): Promise<Order | null> {
@@ -709,10 +773,11 @@ export const repository = {
         query = query.eq('order_code', orderId);
       }
       const { data } = await query.maybeSingle();
-      if (data) return data;
+      if (data) return normalizeOrder(data);
     }
     const orders = await this.getOrders();
-    return orders.find((o) => o.id === orderId || o.order_code === orderId) || null;
+    const found = orders.find((o) => o.id === orderId || o.order_code === orderId) || null;
+    return found ? normalizeOrder(found) : null;
   },
 
   async createOrder(orderData: Omit<Order, 'id' | 'order_number' | 'order_code' | 'created_at' | 'updated_at'>): Promise<Order> {
