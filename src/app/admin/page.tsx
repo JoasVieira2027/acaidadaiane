@@ -15,6 +15,8 @@ import {
   Power,
   RotateCcw,
   Loader2,
+  Trash2,
+  Ban,
 } from 'lucide-react';
 import { Order, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { initialOrders } from '@/lib/data/mockData';
@@ -38,8 +40,22 @@ export default function AdminDashboardPage() {
       .catch(() => {});
   };
 
+  const fetchOrders = () => {
+    fetch('/api/orders', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.orders)) {
+          setOrders(data.orders);
+        }
+      })
+      .catch((err) => console.error('Erro ao buscar pedidos no dashboard:', err));
+  };
+
   useEffect(() => {
     fetchStatus();
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleToggleStore = async (mode: 'open' | 'close' | 'auto') => {
@@ -78,6 +94,56 @@ export default function AdminDashboardPage() {
       setIsUpdatingStatus(false);
       setTimeout(() => setStatusMessage(null), 4000);
     }
+  };
+
+  const handleCancelOrder = async (order: Order) => {
+    if (!window.confirm(`Deseja realmente CANCELAR o pedido #${order.order_code}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_status: 'cancelled' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === order.id ? { ...o, order_status: 'cancelled' } : o))
+        );
+      }
+    } catch {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, order_status: 'cancelled' } : o))
+      );
+    }
+  };
+
+  const handleDeleteOrder = async (order: Order) => {
+    if (!window.confirm(`ATENÇÃO: Tem certeza que deseja EXCLUIR permanentemente o pedido #${order.order_code}? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setOrders((prev) => prev.filter((o) => o.id !== order.id && o.order_code !== order.order_code));
+      } else {
+        alert(data.message || 'Erro ao excluir pedido.');
+      }
+    } catch (err) {
+      console.error('Erro ao excluir pedido:', err);
+      alert('Erro de conexão ao excluir pedido.');
+    }
+  };
+
+  const statusMap: Record<string, { label: string; badge: string }> = {
+    received: { label: 'Recebido', badge: 'badge-warning' },
+    preparing: { label: 'Em preparação', badge: 'badge-warning' },
+    ready: { label: 'Pronto', badge: 'badge-info' },
+    out_for_delivery: { label: 'Saiu p/ entrega', badge: 'badge-info' },
+    completed: { label: 'Concluído', badge: 'badge-success' },
+    cancelled: { label: 'Cancelado', badge: 'badge-danger' },
   };
 
   // Métricas calculadas
@@ -371,27 +437,52 @@ export default function AdminDashboardPage() {
                   </td>
                   <td style={{ padding: '0.85rem 0.5rem' }}>
                     <span
-                      className={`badge ${
-                        order.order_status === 'completed'
-                          ? 'badge-success'
-                          : order.order_status === 'cancelled'
-                          ? 'badge-danger'
-                          : 'badge-warning'
-                      }`}
+                      className={`badge ${statusMap[order.order_status]?.badge || 'badge-info'}`}
                       style={{ fontSize: '0.75rem' }}
                     >
-                      {order.order_status}
+                      {statusMap[order.order_status]?.label || order.order_status}
                     </span>
                   </td>
                   <td style={{ padding: '0.85rem 0.5rem', textAlign: 'right' }}>
-                    <Link
-                      href={`/admin/pedidos/${order.order_code}/print`}
-                      className="btn btn-secondary btn-sm"
-                      title="Imprimir Pedido"
-                    >
-                      <Printer size={14} />
-                      <span>Imprimir</span>
-                    </Link>
+                    <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <Link
+                        href={`/admin/pedidos/${order.order_code}/print`}
+                        className="btn btn-outline btn-sm"
+                        title="Imprimir Comprovante"
+                      >
+                        <Printer size={13} />
+                      </Link>
+                      {order.order_status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelOrder(order)}
+                          className="btn btn-sm"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: '#dc2626',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            padding: '0.3rem 0.45rem',
+                          }}
+                          title="Cancelar Pedido"
+                        >
+                          <Ban size={13} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOrder(order)}
+                        className="btn btn-sm"
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                          color: '#b91c1c',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          padding: '0.3rem 0.45rem',
+                        }}
+                        title="Excluir Pedido Permanentemente"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

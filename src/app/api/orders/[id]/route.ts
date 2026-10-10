@@ -84,3 +84,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ success: false, message: 'Erro no servidor' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    let order = await repository.getOrderById(id);
+    if (!order) {
+      order = await repository.getOrderByCode(id);
+    }
+
+    if (!order) {
+      return NextResponse.json({ success: false, message: 'Pedido não encontrado.' }, { status: 404 });
+    }
+
+    await repository.deleteOrder(order.id);
+    return NextResponse.json(
+      { success: true, message: `Pedido #${order.order_code} excluído com sucesso.` },
+      { headers: noStoreHeaders }
+    );
+  } catch (error: any) {
+    console.error('Erro ao excluir pedido:', error);
+    return NextResponse.json({ success: false, message: 'Erro no servidor ao excluir pedido.' }, { status: 500 });
+  }
+}

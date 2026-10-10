@@ -13,6 +13,8 @@ import {
   XCircle,
   PackageCheck,
   ChevronDown,
+  Trash2,
+  Ban,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/lib/types';
 import { initialOrders } from '@/lib/data/mockData';
@@ -72,6 +74,34 @@ export default function AdminOrdersPage() {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, order_status: newStatus } : o))
       );
+    }
+  };
+
+  const handleCancelOrder = async (order: Order) => {
+    if (!window.confirm(`Deseja realmente CANCELAR o pedido #${order.order_code}?`)) {
+      return;
+    }
+    await handleUpdateStatus(order.id, 'cancelled');
+  };
+
+  const handleDeleteOrder = async (order: Order) => {
+    if (!window.confirm(`ATENÇÃO: Tem certeza que deseja EXCLUIR permanentemente o pedido #${order.order_code}? Esta ação apagará o pedido definitivamente.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setOrders((prev) => prev.filter((o) => o.id !== order.id && o.order_code !== order.order_code));
+        if (selectedOrder && (selectedOrder.id === order.id || selectedOrder.order_code === order.order_code)) {
+          setSelectedOrder(null);
+        }
+      } else {
+        alert(data.message || 'Erro ao excluir pedido.');
+      }
+    } catch (err) {
+      console.error('Erro ao excluir pedido:', err);
+      alert('Erro de conexão ao excluir pedido.');
     }
   };
 
@@ -228,12 +258,12 @@ export default function AdminOrdersPage() {
                       </select>
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(order)}
                           className="btn btn-secondary btn-sm"
-                          title="Ver detalhes"
+                          title="Ver detalhes do pedido"
                         >
                           <Eye size={14} />
                         </button>
@@ -244,6 +274,36 @@ export default function AdminOrdersPage() {
                         >
                           <Printer size={14} />
                         </Link>
+                        {order.order_status !== 'cancelled' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelOrder(order)}
+                            className="btn btn-sm"
+                            style={{
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              color: '#dc2626',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              padding: '0.35rem 0.5rem',
+                            }}
+                            title="Cancelar Pedido"
+                          >
+                            <Ban size={14} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOrder(order)}
+                          className="btn btn-sm"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            color: '#b91c1c',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '0.35rem 0.5rem',
+                          }}
+                          title="Excluir Pedido Definitivamente"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -263,13 +323,22 @@ export default function AdminOrdersPage() {
                 <span className="badge badge-brand">Pedido #{selectedOrder.order_code}</span>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '0.25rem' }}>Detalhes do Pedido</h2>
               </div>
-              <Link
-                href={`/admin/pedidos/${selectedOrder.order_code}/print`}
-                className="btn btn-primary btn-sm"
-              >
-                <Printer size={14} />
-                <span>Imprimir</span>
-              </Link>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Link
+                  href={`/admin/pedidos/${selectedOrder.order_code}/print`}
+                  className="btn btn-outline btn-sm"
+                >
+                  <Printer size={14} />
+                  <span>Imprimir</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
 
             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -306,6 +375,51 @@ export default function AdminOrdersPage() {
               <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '1.1rem' }}>
                 <span>Total:</span>
                 <span style={{ color: 'var(--brand-primary)' }}>R$ {selectedOrder.total_amount.toFixed(2)}</span>
+              </div>
+
+              {/* Botões operacionais de Cancelar e Excluir */}
+              <div
+                style={{
+                  borderTop: '1px solid var(--border-color)',
+                  paddingTop: '1rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}
+              >
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {selectedOrder.order_status !== 'cancelled' && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOrder(selectedOrder)}
+                      className="btn btn-sm"
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Ban size={14} />
+                      <span>Cancelar Pedido</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteOrder(selectedOrder)}
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                      color: '#b91c1c',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    <span>Excluir Pedido</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

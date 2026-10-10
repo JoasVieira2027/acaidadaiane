@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Flame, Tag, Sparkles, AlertCircle } from 'lucide-react';
-import { Category, Product, StoreCurrentStatus } from '@/lib/types';
+import { Search, Flame, Tag, Sparkles, AlertCircle, Clock, Bike, ShieldCheck, Zap, Store } from 'lucide-react';
+import { Category, Product, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 import { Header } from '@/components/ui/Header';
 import { Footer } from '@/components/ui/Footer';
@@ -17,6 +17,7 @@ export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [storeStatus, setStoreStatus] = useState<StoreCurrentStatus | null>(null);
+  const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Filtros
@@ -53,8 +54,9 @@ export default function HomePage() {
       fetch('/api/store-status', { cache: 'no-store' })
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && data.status) {
-            setStoreStatus(data.status);
+          if (data.success) {
+            if (data.status) setStoreStatus(data.status);
+            if (data.settings) setSettings(data.settings);
           }
         })
         .catch(() => {}),
@@ -130,34 +132,90 @@ export default function HomePage() {
           }}
         >
           <div className="container" style={{ maxWidth: '720px' }}>
-            <span
-              className="badge badge-brand"
-              style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', marginBottom: '0.75rem' }}
+            {/* Badges Operacionais Funcionais */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                marginBottom: '1rem',
+              }}
             >
-              Recife • Delivery & Balcão
-            </span>
+              <span
+                className={`badge ${storeStatus?.isOpen ? 'badge-success' : 'badge-danger'}`}
+                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', fontWeight: 700 }}
+              >
+                {storeStatus?.isOpen ? '🟢 Aberto para Pedidos' : '🔴 Fechado no Momento'}
+              </span>
+
+              <span
+                className="badge badge-brand"
+                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                <Bike size={13} />
+                <span>
+                  {settings?.allow_delivery !== false && settings?.allow_pickup !== false
+                    ? 'Delivery & Retirada'
+                    : settings?.allow_delivery !== false
+                    ? 'Apenas Delivery'
+                    : 'Apenas Retirada'}
+                </span>
+              </span>
+
+              <span
+                className="badge badge-info"
+                style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                <Clock size={13} />
+                <span>30 a 50 min</span>
+              </span>
+
+              <span
+                className="badge"
+                style={{
+                  fontSize: '0.8rem',
+                  padding: '0.35rem 0.75rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <Zap size={13} style={{ color: 'var(--brand-primary)' }} />
+                <span>Pix Online &amp; Cartão</span>
+              </span>
+            </div>
+
             <h1
               className="hero-title"
               style={{
-                fontSize: '2.25rem',
+                fontSize: '2.1rem',
                 fontWeight: 900,
                 letterSpacing: '-0.8px',
                 color: 'var(--text-primary)',
-                marginBottom: '0.75rem',
+                marginBottom: '0.5rem',
                 lineHeight: 1.2,
               }}
             >
-              {t.menu.heroTitle}
+              {settings?.store_name || 'Açaí da Daiane'}
             </h1>
+
             <p
               style={{
-                fontSize: '1.05rem',
+                fontSize: '0.95rem',
                 color: 'var(--text-muted)',
                 lineHeight: 1.5,
-                marginBottom: '1.5rem',
+                marginBottom: '1.25rem',
+                maxWidth: '600px',
+                margin: '0 auto 1.25rem auto',
               }}
             >
-              {t.menu.heroSubtitle}
+              {storeStatus?.isOpen
+                ? settings?.open_message || 'Faça seu pedido online de forma rápida com montagem personalizada do seu açaí e entrega garantida.'
+                : settings?.closed_message || 'Estamos fora do horário de atendimento. Consulte nossos produtos e retorne em nossos horários de funcionamento!'}
             </p>
 
             {/* Barra de Busca */}

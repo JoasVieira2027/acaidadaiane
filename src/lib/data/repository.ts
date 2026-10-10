@@ -969,4 +969,28 @@ export const repository = {
     order.updated_at = new Date().toISOString();
     return order;
   },
+
+  async deleteOrder(orderId: string): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+        let targetId = orderId;
+        if (!isUUID) {
+          const { data } = await supabase.from('orders').select('id').eq('order_code', orderId).maybeSingle();
+          if (data?.id) targetId = data.id;
+        }
+
+        await supabase.from('order_items').delete().eq('order_id', targetId);
+        await supabase.from('orders').delete().eq('id', targetId);
+      } catch (err) {
+        console.error('Erro ao excluir pedido Supabase:', err);
+      }
+    }
+
+    globalStore.orders = globalStore.orders.filter(
+      (o: Order) => o.id !== orderId && o.order_code !== orderId
+    );
+    return true;
+  },
 };

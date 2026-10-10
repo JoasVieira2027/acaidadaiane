@@ -6,6 +6,7 @@ import { CartItem, Coupon, Neighborhood, Product, SelectedOption } from '../lib/
 type CartContextType = {
   items: CartItem[];
   addItem: (product: Product, quantity: number, selectedOptions: SelectedOption[], notes?: string) => void;
+  updateItem: (cartId: string, quantity: number, selectedOptions: SelectedOption[], notes?: string) => void;
   updateQuantity: (cartId: string, quantity: number) => void;
   removeItem: (cartId: string) => void;
   clearCart: () => void;
@@ -100,6 +101,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setItems((prev) => [...prev, newItem]);
     setIsCartDrawerOpen(true);
+  };
+
+  const updateItem = (
+    cartId: string,
+    quantity: number,
+    selectedOptions: SelectedOption[],
+    notes?: string
+  ) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.cart_id === cartId) {
+          const basePrice =
+            item.product.is_promo_active && item.product.promotional_price
+              ? item.product.promotional_price
+              : item.product.price;
+
+          const optionsAdditional = selectedOptions.reduce(
+            (sum, opt) => sum + opt.price * (opt.quantity || 1),
+            0
+          );
+
+          const unitPrice = basePrice + optionsAdditional;
+          return {
+            ...item,
+            quantity,
+            selected_options: selectedOptions,
+            notes,
+            unit_price: unitPrice,
+            total_price: unitPrice * quantity,
+          };
+        }
+        return item;
+      })
+    );
   };
 
   const updateQuantity = (cartId: string, quantity: number) => {
@@ -205,6 +240,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       value={{
         items,
         addItem,
+        updateItem,
         updateQuantity,
         removeItem,
         clearCart,

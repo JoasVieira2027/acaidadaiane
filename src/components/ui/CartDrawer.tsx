@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, Plus, Minus, Tag, MapPin, AlertCircle, ShoppingBag } from 'lucide-react';
-import { Neighborhood, StoreCurrentStatus } from '@/lib/types';
+import { X, Trash2, Plus, Minus, Tag, MapPin, AlertCircle, ShoppingBag, Pencil } from 'lucide-react';
+import { CartItem, Neighborhood, StoreCurrentStatus } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { ProductModal } from './ProductModal';
 
 export function CartDrawer() {
   const {
@@ -37,6 +38,7 @@ export function CartDrawer() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponFeedback, setCouponFeedback] = useState<{ message: string; isError: boolean } | null>(null);
   const [storeStatus, setStoreStatus] = useState<StoreCurrentStatus | null>(null);
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
   useEffect(() => {
     fetch('/api/store-status', { cache: 'no-store' })
@@ -181,15 +183,38 @@ export function CartDrawer() {
                         R$ {item.unit_price.toFixed(2)} cada
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.cart_id)}
-                      className="btn btn-sm"
-                      style={{ color: 'var(--danger)', padding: '0.25rem' }}
-                      title="Remover item"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditingItem(item)}
+                        className="btn btn-sm"
+                        style={{
+                          color: 'var(--brand-primary)',
+                          padding: '0.25rem 0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                        }}
+                        title="Editar acompanhamentos e opções"
+                      >
+                        <Pencil size={13} />
+                        <span>Editar</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.cart_id)}
+                        className="btn btn-sm"
+                        style={{ color: 'var(--danger)', padding: '0.25rem' }}
+                        title="Remover item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Complementos Selecionados */}
@@ -442,6 +467,15 @@ export function CartDrawer() {
           </div>
         )}
       </div>
+
+      {/* Modal de Edição de Acompanhamentos do Item */}
+      {editingItem && (
+        <ProductModal
+          product={editingItem.product}
+          editingCartItem={editingItem}
+          onClose={() => setEditingItem(null)}
+        />
+      )}
     </div>
   );
 }

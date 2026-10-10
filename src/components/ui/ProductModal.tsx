@@ -3,22 +3,32 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { X, Plus, Minus, Check, AlertCircle } from 'lucide-react';
-import { Option, OptionGroup, Product, SelectedOption } from '@/lib/types';
+import { CartItem, Option, OptionGroup, Product, SelectedOption } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
 
 type ProductModalProps = {
   product: Product;
   onClose: () => void;
+  editingCartItem?: CartItem;
 };
 
-export function ProductModal({ product, onClose }: ProductModalProps) {
-  const { addItem } = useCart();
+export function ProductModal({ product, onClose, editingCartItem }: ProductModalProps) {
+  const { addItem, updateItem } = useCart();
   const { t, localize } = useLanguage();
 
-  const [quantity, setQuantity] = useState(1);
-  const [selectedOptionsMap, setSelectedOptionsMap] = useState<Record<string, SelectedOption[]>>({});
-  const [itemNotes, setItemNotes] = useState('');
+  const [quantity, setQuantity] = useState(editingCartItem?.quantity || 1);
+  const [selectedOptionsMap, setSelectedOptionsMap] = useState<Record<string, SelectedOption[]>>(() => {
+    const map: Record<string, SelectedOption[]> = {};
+    if (editingCartItem?.selected_options) {
+      editingCartItem.selected_options.forEach((opt) => {
+        if (!map[opt.group_id]) map[opt.group_id] = [];
+        map[opt.group_id].push(opt);
+      });
+    }
+    return map;
+  });
+  const [itemNotes, setItemNotes] = useState(editingCartItem?.notes || '');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const productName = localize(product, 'name');
@@ -107,7 +117,11 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
     }
 
     const allSelected = Object.values(selectedOptionsMap).flat();
-    addItem(product, quantity, allSelected, itemNotes.trim() || undefined);
+    if (editingCartItem) {
+      updateItem(editingCartItem.cart_id, quantity, allSelected, itemNotes.trim() || undefined);
+    } else {
+      addItem(product, quantity, allSelected, itemNotes.trim() || undefined);
+    }
     onClose();
   };
 
@@ -373,7 +387,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
             className="btn btn-primary"
             style={{ flex: 1, padding: '0.85rem 1.5rem' }}
           >
-            <span>{t.menu.addToCart}</span>
+            <span>{editingCartItem ? 'Atualizar Pedido no Carrinho' : t.menu.addToCart}</span>
             <span style={{ opacity: 0.85, fontWeight: 700 }}>•</span>
             <span style={{ fontWeight: 800 }}>{formattedFinalPrice}</span>
           </button>
