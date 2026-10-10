@@ -677,19 +677,19 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 .product-card-img-wrap {
   position: relative;
   overflow: hidden;
-  background: #fff;
+  background: #111;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 [data-theme='dark'] .product-card-img-wrap {
-  background: #18101f;
+  background: #0d0d0d;
 }
 
 .product-card-img {
-  object-fit: contain !important;
-  padding: 8px;
+  object-fit: cover !important;
+  object-position: center !important;
   transition: transform 0.4s ease;
 }
 
@@ -724,7 +724,7 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 
   .product-card-img-wrap {
     width: 100%;
-    height: 220px;
+    height: 260px;
     border-bottom: 1px solid var(--border-color);
   }
 
@@ -829,18 +829,13 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   }
 
   .product-card-img-wrap {
-    width: 110px;
-    height: 110px;
-    min-width: 110px;
+    width: 130px;
+    height: 130px;
+    min-width: 130px;
     border-radius: 12px;
     flex-shrink: 0;
     overflow: hidden;
     border: none;
-    background: #fff;
-  }
-
-  [data-theme='dark'] .product-card-img-wrap {
-    background: #18101f;
   }
 
   .product-card-img-wrap::after {
@@ -849,7 +844,7 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 
   .product-card-img {
     border-radius: 0;
-    padding: 4px;
+    padding: 0;
   }
 
   .product-card-btn {
