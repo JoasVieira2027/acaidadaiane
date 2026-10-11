@@ -79,13 +79,16 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
 
   const lines: string[] = [];
 
-  lines.push(`*NOVO PEDIDO - ${storeName.toUpperCase()}*`);
+  lines.push(`Olá, ${storeName}! 👋`);
+  lines.push(`Acabei de realizar um pedido pelo site e gostaria de confirmá-lo.`);
+  lines.push('');
+  lines.push(`*DETALHES DO MEU PEDIDO*`);
   lines.push(`Pedido: #${order.order_code || 'PEDIDO'}`);
   if (dateFormatted) {
     lines.push(`Data e Horário: ${dateFormatted}`);
   }
   lines.push('----------------------------------------');
-  lines.push('*DADOS DO CLIENTE*');
+  lines.push('*MEUS DADOS*');
   lines.push(`Nome: ${order.customer_name || 'Cliente'}`);
   lines.push(`Telefone: ${order.customer_phone || ''}`);
   lines.push(`Modalidade: ${order.order_type === 'delivery' ? 'Entrega em Domicílio' : 'Retirada no Balcão'}`);
@@ -161,7 +164,7 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
   }
 
   lines.push('----------------------------------------');
-  lines.push('Acompanhe seu pedido pelo site ou tire dúvidas respondendo a esta mensagem.');
+  lines.push('Aguardo a confirmação. Obrigado(a)! 😊');
 
   return lines.join('\n');
 }
