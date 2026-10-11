@@ -518,6 +518,7 @@ export default function OrderTrackingPage({
             </div>
           )}
 
+
           {/* Botão de Envio para WhatsApp Comercial */}
           <div style={{ marginBottom: '1.5rem' }}>
             {isPixPending ? (
@@ -544,6 +545,56 @@ export default function OrderTrackingPage({
                 <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: 0 }}>
                   Assim que você pagar o Pix, o botão será liberado e abrirá automaticamente o WhatsApp comercial com os detalhes do seu pedido.
                 </p>
+              </div>
+            ) : order.order_status === 'completed' ? (
+              <div
+                style={{
+                  width: '100%',
+                  backgroundColor: '#dcfce7',
+                  padding: '1rem',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  border: '1px solid #bbf7d0',
+                  textAlign: 'center',
+                }}
+              >
+                <CheckCircle size={20} color="#15803d" />
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#15803d', display: 'block' }}>
+                    Pedido Concluído com Sucesso!
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: '#166534' }}>
+                    Obrigado pela preferência. Até a próxima! 🍇
+                  </span>
+                </div>
+              </div>
+            ) : order.order_status === 'cancelled' ? (
+              <div
+                style={{
+                  width: '100%',
+                  backgroundColor: 'var(--danger-bg)',
+                  padding: '1rem',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  border: '1px solid #fca5a5',
+                  textAlign: 'center',
+                }}
+              >
+                <Truck size={20} color="var(--danger)" />
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--danger)', display: 'block' }}>
+                    Pedido Cancelado
+                  </span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>
+                    Entre em contato conosco se tiver dúvidas.
+                  </span>
+                </div>
               </div>
             ) : (
               <div>
@@ -584,6 +635,7 @@ export default function OrderTrackingPage({
           </div>
 
           {/* Itens do Pedido */}
+
           <div>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
               Itens Comprados
