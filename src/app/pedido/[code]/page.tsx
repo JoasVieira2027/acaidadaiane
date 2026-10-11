@@ -64,16 +64,20 @@ export default function OrderTrackingPage({
 }: {
   params: Promise<{ code: string }>;
 }) {
-  const unwrappedParams = React.use(params);
   const routeParams = useParams();
 
-  // Extração resiliente do código do pedido compatível com mobile e SSR
-  let initialCode = unwrappedParams?.code || '';
-  if (!initialCode && routeParams?.code) {
-    initialCode = Array.isArray(routeParams.code) ? routeParams.code[0] : routeParams.code;
-  }
+  // Extração inicial segura e síncrona para evitar suspense sem boundary
+  const [code, setCode] = useState<string>(() => {
+    if (routeParams?.code) {
+      return Array.isArray(routeParams.code) ? routeParams.code[0] : routeParams.code;
+    }
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/pedido\/([^\/\?#]+)/i);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    }
+    return '';
+  });
 
-  const [code, setCode] = useState<string>(initialCode || '');
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -82,27 +86,26 @@ export default function OrderTrackingPage({
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const autoOpenedWhatsAppRef = React.useRef(false);
 
-  // Sincroniza se o código inicial for resolvido posteriormente
+  // Resolução da Promise do Next.js 15 em background
   useEffect(() => {
-    if (unwrappedParams?.code && unwrappedParams.code !== code) {
-      setCode(unwrappedParams.code);
+    if (params && typeof (params as any).then === 'function') {
+      params.then((p) => {
+        if (p?.code && p.code !== code) {
+          setCode(p.code);
+        }
+      }).catch(() => {});
     }
-  }, [unwrappedParams?.code, code]);
+  }, [params, code]);
 
-  // Fallback direto via window.location para mobile caso o roteador SPA atrase a hidratação
+  // Atualização caso useParams mude
   useEffect(() => {
-    if (!code && typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/pedido\/([^\/\?#]+)/i);
-      if (match && match[1]) {
-        setCode(decodeURIComponent(match[1]));
-      }
-    } else if (routeParams?.code) {
-      const rCode = Array.isArray(routeParams.code) ? routeParams.code[0] : routeParams.code;
-      if (rCode && rCode !== code) {
-        setCode(rCode);
+    if (routeParams?.code) {
+      const c = Array.isArray(routeParams.code) ? routeParams.code[0] : routeParams.code;
+      if (c && c !== code) {
+        setCode(c);
       }
     }
-  }, [code, routeParams]);
+  }, [routeParams?.code, code]);
 
   // Busca telefone oficial nas configurações da loja
   useEffect(() => {

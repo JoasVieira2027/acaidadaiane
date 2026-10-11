@@ -105,6 +105,13 @@ export default function OrderErrorPage({
               <ArrowLeft size={16} />
               <span>Voltar ao Cardápio</span>
             </Link>
+
+            <details style={{ marginTop: '1rem', textAlign: 'left', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <summary style={{ cursor: 'pointer', textAlign: 'center', padding: '0.25rem' }}>Ver detalhe do erro</summary>
+              <p style={{ marginTop: '0.5rem', wordBreak: 'break-all', color: '#ef4444', backgroundColor: 'var(--bg-tertiary)', padding: '0.5rem', borderRadius: '4px' }}>
+                {error?.message || String(error)}
+              </p>
+            </details>
           </div>
         </div>
       </main>
