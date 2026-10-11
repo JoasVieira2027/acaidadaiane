@@ -12,7 +12,7 @@ import {
 
 export const initialSettings: StoreSettings = {
   id: 'default',
-  store_name: 'Açaí Daiane',
+  store_name: 'Açaí da Daiane',
   logo_url: '',
   banner_url: '',
   whatsapp_number: '5581999998888',
