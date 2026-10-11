@@ -1,4 +1,4 @@
-import { Order } from './types';
+import type { Order } from './types';
 
 /**
  * Formata um valor numérico para a moeda brasileira (R$) com tolerância a tipos
@@ -61,11 +61,17 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
     const rawDate = order.created_at ? String(order.created_at).replace(' ', 'T') : '';
     const d = new Date(rawDate);
     if (!isNaN(d.getTime())) {
-      dateFormatted = d.toLocaleString('pt-BR', {
-        timeZone: 'America/Recife',
-        dateStyle: 'short',
-        timeStyle: 'short',
-      });
+      try {
+        dateFormatted = d.toLocaleString('pt-BR', {
+          timeZone: 'America/Recife',
+          dateStyle: 'short',
+          timeStyle: 'short',
+        });
+      } catch {
+        // Fallback para navegadores mobile sem suporte a timezone específico
+        const pad = (n: number) => String(n).padStart(2, '0');
+        dateFormatted = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
     }
   } catch {
     dateFormatted = '';

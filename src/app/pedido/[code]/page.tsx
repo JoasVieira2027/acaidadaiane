@@ -43,21 +43,37 @@ const formatPrice = (val: any): string => {
 };
 
 const formatOrderDate = (val: any): string => {
+  if (!val) return '';
   try {
-    const raw = val ? String(val).replace(' ', 'T') : '';
+    const raw = String(val).replace(' ', 'T');
     const d = new Date(raw);
-    return !isNaN(d.getTime())
-      ? d.toLocaleString('pt-BR', { timeZone: 'America/Recife' })
-      : '';
+    if (isNaN(d.getTime())) return '';
+    try {
+      return d.toLocaleString('pt-BR', { timeZone: 'America/Recife' });
+    } catch {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
   } catch {
     return '';
   }
 };
 
-export default function OrderTrackingPage() {
-  const params = useParams();
-  const code = (params.code as string) || '';
+export default function OrderTrackingPage({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const unwrappedParams = React.use(params);
+  const routeParams = useParams();
 
+  // Extração resiliente do código do pedido compatível com mobile e SSR
+  let initialCode = unwrappedParams?.code || '';
+  if (!initialCode && routeParams?.code) {
+    initialCode = Array.isArray(routeParams.code) ? routeParams.code[0] : routeParams.code;
+  }
+
+  const [code, setCode] = useState<string>(initialCode || '');
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -65,6 +81,28 @@ export default function OrderTrackingPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const autoOpenedWhatsAppRef = React.useRef(false);
+
+  // Sincroniza se o código inicial for resolvido posteriormente
+  useEffect(() => {
+    if (unwrappedParams?.code && unwrappedParams.code !== code) {
+      setCode(unwrappedParams.code);
+    }
+  }, [unwrappedParams?.code, code]);
+
+  // Fallback direto via window.location para mobile caso o roteador SPA atrase a hidratação
+  useEffect(() => {
+    if (!code && typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/pedido\/([^\/\?#]+)/i);
+      if (match && match[1]) {
+        setCode(decodeURIComponent(match[1]));
+      }
+    } else if (routeParams?.code) {
+      const rCode = Array.isArray(routeParams.code) ? routeParams.code[0] : routeParams.code;
+      if (rCode && rCode !== code) {
+        setCode(rCode);
+      }
+    }
+  }, [code, routeParams]);
 
   // Busca telefone oficial nas configurações da loja
   useEffect(() => {
@@ -82,7 +120,7 @@ export default function OrderTrackingPage() {
     if (!code) return;
     if (isManual) setIsCheckingPayment(true);
     try {
-      const res = await fetch(`/api/orders/${code}`, { cache: 'no-store' });
+      const res = await fetch(`/api/orders/${encodeURIComponent(code)}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success && data.order) {
         setOrder(data.order);
@@ -209,8 +247,21 @@ export default function OrderTrackingPage() {
     );
   }
 
-  const whatsAppMessage = generateWhatsAppOrderMessage(order);
-  const whatsAppUrl = getWhatsAppShareUrl(storePhone, whatsAppMessage);
+  const { whatsAppMessage, whatsAppUrl } = React.useMemo(() => {
+    if (!order) return { whatsAppMessage: '', whatsAppUrl: '' };
+    try {
+      const msg = generateWhatsAppOrderMessage(order);
+      const url = getWhatsAppShareUrl(storePhone, msg);
+      return { whatsAppMessage: msg, whatsAppUrl: url };
+    } catch (e) {
+      console.error('Erro ao gerar mensagem WhatsApp:', e);
+      const fallbackMsg = `*Açaí Daiane*\nPedido #${order.order_code || ''}\nTotal: R$ ${formatPrice(order.total_amount)}`;
+      return {
+        whatsAppMessage: fallbackMsg,
+        whatsAppUrl: getWhatsAppShareUrl(storePhone, fallbackMsg),
+      };
+    }
+  }, [order, storePhone]);
 
   // Dispara envio automático para WhatsApp assim que o Pix for aprovado
   useEffect(() => {
@@ -218,12 +269,15 @@ export default function OrderTrackingPage() {
       order &&
       order.payment_method === 'pix' &&
       order.payment_status === 'paid' &&
+      whatsAppUrl &&
       !autoOpenedWhatsAppRef.current
     ) {
       autoOpenedWhatsAppRef.current = true;
       const timer = setTimeout(() => {
         try {
-          window.open(whatsAppUrl, '_blank');
+          if (typeof window !== 'undefined') {
+            window.open(whatsAppUrl, '_blank');
+          }
         } catch (e) {
           console.warn('Bloqueio de popup ou erro ao abrir WhatsApp:', e);
         }
@@ -532,7 +586,7 @@ export default function OrderTrackingPage() {
               Itens Comprados
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {order.items?.map((item) => {
+              {order.items?.map((item, index) => {
                 let opts = item.selected_options;
                 if (typeof opts === 'string') {
                   try { opts = JSON.parse(opts); } catch { opts = []; }
@@ -541,7 +595,7 @@ export default function OrderTrackingPage() {
 
                 return (
                   <div
-                    key={item.id}
+                    key={item.id || index}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',

@@ -119,7 +119,7 @@ export function CheckoutModal() {
       if (targetCode) {
         clearCart();
         setIsCheckoutModalOpen(false);
-        router.push(`/pedido/${targetCode}`);
+        window.location.href = `/pedido/${targetCode}`;
       } else {
         setErrorMsg('Pedido registrado, mas não foi possível carregar os detalhes. Verifique em Acompanhamento.');
         setLoading(false);

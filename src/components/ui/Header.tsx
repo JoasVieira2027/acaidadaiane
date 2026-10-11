@@ -44,10 +44,11 @@ export function Header() {
     };
   }, []);
 
+  const safeSubtotal = typeof subtotal === 'number' && !isNaN(subtotal) ? subtotal : 0;
   const formattedSubtotal = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(subtotal);
+  }).format(safeSubtotal);
 
   return (
     <header className="site-header">
