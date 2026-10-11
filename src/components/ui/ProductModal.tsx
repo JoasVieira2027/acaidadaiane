@@ -50,10 +50,14 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
   const productName = localize(product, 'name');
   const productDescription = localize(product, 'description');
 
-  // Preço base: se tem tamanho selecionado, usa o preço do tamanho; senão, usa o preço do produto
-  const basePrice = hasSizes && selectedSize
+  // Preço base: se tem tamanho selecionado com preço > 0, usa o preço do tamanho
+  // Se o tamanho tem preço 0 (não definido), mantém o preço base do produto
+  const productBasePrice = product.is_promo_active && product.promotional_price
+    ? product.promotional_price
+    : product.price;
+  const basePrice = hasSizes && selectedSize && selectedSize.price > 0
     ? selectedSize.price
-    : (product.is_promo_active && product.promotional_price ? product.promotional_price : product.price);
+    : productBasePrice;
 
   // Calcula adicional de todas as opções selecionadas
   const optionsTotal = Object.values(selectedOptionsMap)
@@ -159,7 +163,7 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
     if (editingCartItem) {
       updateItem(editingCartItem.cart_id, quantity, allSelected, itemNotes.trim() || undefined);
     } else {
-      addItem(product, quantity, allSelected, itemNotes.trim() || undefined, hasSizes && selectedSize ? selectedSize.price : undefined);
+      addItem(product, quantity, allSelected, itemNotes.trim() || undefined, hasSizes && selectedSize && selectedSize.price > 0 ? selectedSize.price : undefined);
     }
     onClose();
   };
