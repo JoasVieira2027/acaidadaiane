@@ -16,8 +16,15 @@ import {
   Trash2,
   Ban,
 } from 'lucide-react';
-import { Order, OrderStatus } from '@/lib/types';
+import { Order, OrderStatus, PaymentStatus } from '@/lib/types';
 import { initialOrders } from '@/lib/data/mockData';
+
+const paymentMethodLabels: Record<string, string> = {
+  pix: 'Pix Online',
+  cash: 'Dinheiro',
+  card_delivery: 'Cartão Maquininha',
+  card_link: 'Cartão por Link',
+};
 
 const statusLabels: Record<OrderStatus, { label: string; badge: string }> = {
   received: { label: 'Recebido', badge: 'badge-warning' },
@@ -73,6 +80,32 @@ export default function AdminOrdersPage() {
       // Atualização local de fallback
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, order_status: newStatus } : o))
+      );
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (orderId: string, newPaymentStatus: PaymentStatus) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_status: newPaymentStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId || o.order_code === orderId ? { ...o, payment_status: newPaymentStatus } : o
+          )
+        );
+        if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.order_code === orderId)) {
+          setSelectedOrder((prev) => (prev ? { ...prev, payment_status: newPaymentStatus } : null));
+        }
+      }
+    } catch {
+      // Atualização local de fallback
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, payment_status: newPaymentStatus } : o))
       );
     }
   };
@@ -235,11 +268,41 @@ export default function AdminOrdersPage() {
                       R$ {order.total_amount.toFixed(2)}
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <span
-                        className={`badge ${order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}
-                        style={{ fontSize: '0.75rem' }}
+                      <select
+                        value={order.payment_status}
+                        onChange={(e) => handleUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
+                        className="form-select"
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '0.3rem 0.5rem',
+                          fontWeight: 700,
+                          borderRadius: 'var(--radius-full, 9999px)',
+                          cursor: 'pointer',
+                          backgroundColor:
+                            order.payment_status === 'paid'
+                              ? 'rgba(34, 197, 94, 0.12)'
+                              : 'rgba(234, 179, 8, 0.15)',
+                          color: order.payment_status === 'paid' ? '#15803d' : '#a16207',
+                          border:
+                            order.payment_status === 'paid'
+                              ? '1px solid rgba(34, 197, 94, 0.35)'
+                              : '1px solid rgba(234, 179, 8, 0.35)',
+                        }}
                       >
-                        {order.payment_status === 'paid' ? 'Pago' : 'Pendente'}
+                        <option value="pending">🟡 Pendente</option>
+                        <option value="paid">🟢 Pago</option>
+                        <option value="cancelled">🔴 Cancelado</option>
+                      </select>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: '0.72rem',
+                          color: 'var(--text-muted)',
+                          marginTop: '0.25rem',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {paymentMethodLabels[order.payment_method] || order.payment_method}
                       </span>
                     </td>
                     <td style={{ padding: '1rem' }}>
@@ -351,6 +414,75 @@ export default function AdminOrdersPage() {
                     {selectedOrder.address_complement && ` (${selectedOrder.address_complement})`}
                   </p>
                 )}
+              </div>
+
+              {/* Status do Pagamento e Status Operacional editáveis no Modal */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '0.75rem',
+                  padding: '0.85rem',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div>
+                  <h4 style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+                    PAGAMENTO ({paymentMethodLabels[selectedOrder.payment_method] || selectedOrder.payment_method})
+                  </h4>
+                  <select
+                    value={selectedOrder.payment_status}
+                    onChange={(e) => handleUpdatePaymentStatus(selectedOrder.id, e.target.value as PaymentStatus)}
+                    className="form-select"
+                    style={{
+                      width: '100%',
+                      fontSize: '0.82rem',
+                      padding: '0.35rem 0.5rem',
+                      fontWeight: 700,
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor:
+                        selectedOrder.payment_status === 'paid'
+                          ? 'rgba(34, 197, 94, 0.12)'
+                          : 'rgba(234, 179, 8, 0.15)',
+                      color: selectedOrder.payment_status === 'paid' ? '#15803d' : '#a16207',
+                      border:
+                        selectedOrder.payment_status === 'paid'
+                          ? '1px solid rgba(34, 197, 94, 0.35)'
+                          : '1px solid rgba(234, 179, 8, 0.35)',
+                    }}
+                  >
+                    <option value="pending">🟡 Pendente</option>
+                    <option value="paid">🟢 Pago</option>
+                    <option value="cancelled">🔴 Cancelado</option>
+                  </select>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+                    STATUS OPERACIONAL
+                  </h4>
+                  <select
+                    value={selectedOrder.order_status}
+                    onChange={(e) => handleUpdateStatus(selectedOrder.id, e.target.value as OrderStatus)}
+                    className="form-select"
+                    style={{
+                      width: '100%',
+                      fontSize: '0.82rem',
+                      padding: '0.35rem 0.5rem',
+                      fontWeight: 600,
+                      borderRadius: 'var(--radius-md)',
+                    }}
+                  >
+                    <option value="received">Recebido</option>
+                    <option value="preparing">Em preparação</option>
+                    <option value="ready">Pronto</option>
+                    <option value="out_for_delivery">Saiu para entrega</option>
+                    <option value="completed">Concluído</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
               </div>
 
               <div>
