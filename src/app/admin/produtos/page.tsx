@@ -486,14 +486,21 @@ export default function AdminProductsPage() {
           price: parsePrice(s.price),
         }));
 
+      // Se tem tamanhos, o preço base é o menor preço dos tamanhos
+      const autoPrice = sizesData.length > 0
+        ? Math.min(...sizesData.map((s) => s.price))
+        : parsePrice(editingProduct.price);
+
       const payload = {
         product: {
           ...editingProduct,
           image_url: imageUrl,
-          price: parsePrice(editingProduct.price),
-          promotional_price: editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
+          price: autoPrice,
+          // Promoção não se aplica quando produto tem tamanhos
+          promotional_price: sizesData.length === 0 && editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
             ? parsePrice(editingProduct.promotional_price)
             : null,
+          is_promo_active: sizesData.length === 0 ? Boolean(editingProduct.is_promo_active) : false,
           sizes: sizesData.length > 0 ? sizesData : null,
         },
         option_group_ids: selectedGroupIds,
@@ -805,18 +812,40 @@ export default function AdminProductsPage() {
                           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                       </div>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label">Preço Normal (R$) *</label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          required
-                          className="form-input"
-                          value={editingProduct.price ?? ''}
-                          onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value as any })}
-                          placeholder="Ex: 15,90 ou 0,10"
-                        />
-                      </div>
+
+                      {/* Preço Normal — escondido quando há tamanhos configurados */}
+                      {editingSizes.length === 0 ? (
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Preço Normal (R$) *</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            required
+                            className="form-input"
+                            value={editingProduct.price ?? ''}
+                            onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value as any })}
+                            placeholder="Ex: 15,90 ou 0,10"
+                          />
+                        </div>
+                      ) : (
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Preço</label>
+                          <div style={{
+                            padding: '0.6rem 0.75rem',
+                            backgroundColor: 'var(--bg-accent-subtle)',
+                            border: '1px solid var(--brand-primary)',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.8rem',
+                            color: 'var(--brand-primary)',
+                            fontWeight: 600,
+                          }}>
+                            📏 Definido pelos tamanhos<br />
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                              a partir de R$ {Math.min(...editingSizes.filter(s => s.label && s.price).map(s => parseFloat(String(s.price).replace(',', '.')) || 0)).toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label">Ordem / Posição *</label>
                         <input
@@ -842,7 +871,8 @@ export default function AdminProductsPage() {
                       />
                     </div>
 
-                    {/* Promoção */}
+                    {/* Promoção — desabilitada quando há tamanhos */}
+                    {editingSizes.length === 0 && (
                     <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, cursor: 'pointer', marginBottom: editingProduct.is_promo_active ? '0.75rem' : 0 }}>
                         <input type="checkbox" checked={editingProduct.is_promo_active || false}
@@ -864,6 +894,7 @@ export default function AdminProductsPage() {
                         </div>
                       )}
                     </div>
+                    )}
 
                     {/* Destaques e disponibilidade */}
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
