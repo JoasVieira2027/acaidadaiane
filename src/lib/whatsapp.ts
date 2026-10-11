@@ -55,7 +55,7 @@ function getPaymentStatusLabel(status: string): string {
 /**
  * Gera o texto do pedido formatado para o WhatsApp sem emojis, limpo e profissional
  */
-export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açai da Daiane'): string {
+export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí da Daiane'): string {
   let dateFormatted = '';
   try {
     const rawDate = order.created_at ? String(order.created_at).replace(' ', 'T') : '';
