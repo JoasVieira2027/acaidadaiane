@@ -22,6 +22,7 @@ export type StoreSettings = {
   allow_delivery: boolean;
   default_locale: string;
   season_effect?: SeasonEffect;
+  season_banner_text?: string;
 };
 
 

@@ -101,6 +101,118 @@ export function getSeasonTitleClass(effect: SeasonEffect): string {
   return `se-title-${effect}`;
 }
 
+// ── Theme metadata and default announcement texts ────────────────────────────
+export interface SeasonThemeInfo {
+  title: string;
+  badge: string;
+  defaultBanner: string;
+  gradientBg: string;
+  borderColor: string;
+  textColor: string;
+}
+
+export const SEASON_THEMES_INFO: Record<Exclude<SeasonEffect, 'none'>, SeasonThemeInfo> = {
+  christmas: {
+    title: 'Natal',
+    badge: '🎄 Especial de Natal',
+    defaultBanner: '🎄 Boas Festas! Aproveite nosso cardápio especial de Natal com muito sabor e alegria.',
+    gradientBg: 'linear-gradient(90deg, #991b1b, #065f46, #991b1b)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    textColor: '#ffffff',
+  },
+  new_year: {
+    title: 'Ano Novo',
+    badge: '✨ Feliz Ano Novo',
+    defaultBanner: '✨ Feliz Ano Novo! Celebre a virada com as melhores combinações e o açaí mais saboroso.',
+    gradientBg: 'linear-gradient(90deg, #78350f, #b45309, #d97706, #78350f)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    textColor: '#ffffff',
+  },
+  carnival: {
+    title: 'Carnaval',
+    badge: '🎭 Folia de Carnaval',
+    defaultBanner: '🎭 Folia de Sabores! Caia na folia com energia e o cardápio mais refrescante da cidade.',
+    gradientBg: 'linear-gradient(90deg, #6b21a8, #be185d, #ea580c, #6b21a8)',
+    borderColor: 'rgba(192, 132, 252, 0.4)',
+    textColor: '#ffffff',
+  },
+  easter: {
+    title: 'Páscoa',
+    badge: '🐰 Especial de Páscoa',
+    defaultBanner: '🐰 Feliz Páscoa! Deliciosas camadas e cremes especiais para adoçar e celebrar o seu dia.',
+    gradientBg: 'linear-gradient(90deg, #831843, #be185d, #047857, #831843)',
+    borderColor: 'rgba(244, 114, 182, 0.4)',
+    textColor: '#ffffff',
+  },
+  kids_day: {
+    title: 'Dia das Crianças',
+    badge: '🎈 Dia das Crianças',
+    defaultBanner: '🎈 Especial Dia das Crianças! Monte o copo da diversão com confeitos e seus toppings favoritos.',
+    gradientBg: 'linear-gradient(90deg, #0284c7, #db2777, #7c3aed, #0284c7)',
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    textColor: '#ffffff',
+  },
+};
+
+export function getSeasonInfo(effect?: SeasonEffect | null): SeasonThemeInfo | null {
+  if (!effect || effect === 'none') return null;
+  return (SEASON_THEMES_INFO as any)[effect] || null;
+}
+
+// ── Top Festive Banner ────────────────────────────────────────────────────────
+export function SeasonTopBanner({
+  effect,
+  customText,
+}: {
+  effect: SeasonEffect;
+  customText?: string;
+}) {
+  const [dismissed, setDismissed] = React.useState(false);
+  const info = getSeasonInfo(effect);
+
+  if (!info || dismissed) return null;
+
+  const message = customText?.trim() || info.defaultBanner;
+
+  return (
+    <div
+      className="season-top-banner"
+      style={{
+        background: info.gradientBg,
+        color: info.textColor,
+        borderBottom: `1px solid ${info.borderColor}`,
+      }}
+    >
+      <div className="season-top-banner-inner">
+        <span className="season-top-banner-tag">{info.title.toUpperCase()}</span>
+        <span className="season-top-banner-text">{message}</span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="season-top-banner-close"
+        aria-label="Fechar faixa comemorativa"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+// ── Hero Season Badge (Pill right above Store Name) ──────────────────────────
+export function SeasonHeroBadge({ effect }: { effect: SeasonEffect }) {
+  const info = getSeasonInfo(effect);
+  if (!info) return null;
+
+  return (
+    <div className="hero-season-badge-wrap">
+      <span className={`hero-season-badge se-badge-${effect}`}>
+        {info.badge}
+      </span>
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export function SeasonEffectLayer({ effect }: { effect: SeasonEffect }) {
   const cfg = THEMES[effect];
@@ -140,3 +252,4 @@ export function SeasonEffectLayer({ effect }: { effect: SeasonEffect }) {
     </div>
   );
 }
+

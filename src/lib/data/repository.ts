@@ -138,8 +138,8 @@ export const repository = {
         }
         if (error) {
           console.error('Erro updateSettings Supabase:', error);
-          if (error.message?.includes('season_effect')) {
-            const { season_effect: _se, ...safePayload } = payload as any;
+          if (error.message?.includes('season_') || error.message?.includes('column')) {
+            const { season_effect: _se, season_banner_text: _sbt, ...safePayload } = payload as any;
             const { data: retryData, error: retryErr } = await supabase
               .from('store_settings')
               .upsert(safePayload)

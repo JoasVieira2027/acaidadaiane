@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS store_settings (
     allow_delivery BOOLEAN DEFAULT TRUE,
     default_locale TEXT DEFAULT 'pt-BR',
     season_effect TEXT DEFAULT 'none',
+    season_banner_text TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

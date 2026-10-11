@@ -417,6 +417,37 @@ export default function AdminSettingsPage() {
               );
             })}
           </div>
+
+          {/* Campo de texto personalizado da faixa comemorativa */}
+          {settings.season_effect && settings.season_effect !== 'none' && (
+            <div
+              style={{
+                marginTop: '1.5rem',
+                paddingTop: '1.25rem',
+                borderTop: '1px solid var(--border-color)',
+              }}
+            >
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Texto da Faixa Comemorativa no Topo (Opcional)</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>
+                    Deixe em branco para usar a mensagem padrão do tema
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={settings.season_banner_text || ''}
+                  onChange={(e) => setSettings({ ...settings, season_banner_text: e.target.value })}
+                  className="form-input"
+                  placeholder="Ex: 🎄 Boas Festas! Aproveite nosso cardápio especial de Natal com descontos exclusivos."
+                />
+              </div>
+
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                💡 A faixa aparece com destaque visual no topo de todas as páginas da loja, permitindo que os clientes identifiquem a comemoração instantaneamente.
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>

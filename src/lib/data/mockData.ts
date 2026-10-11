@@ -32,6 +32,7 @@ export const initialSettings: StoreSettings = {
   allow_delivery: true,
   default_locale: 'pt-BR',
   season_effect: 'none',
+  season_banner_text: '',
 };
 
 export const initialCategories: Category[] = [

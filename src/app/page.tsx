@@ -10,7 +10,7 @@ import { ProductCard } from '@/components/ui/ProductCard';
 import { ProductModal } from '@/components/ui/ProductModal';
 import { CartDrawer } from '@/components/ui/CartDrawer';
 import { CheckoutModal } from '@/components/ui/CheckoutModal';
-import { SeasonEffectLayer, getSeasonTitleClass } from '@/components/ui/SeasonEffect';
+import { SeasonEffectLayer, getSeasonTitleClass, SeasonHeroBadge } from '@/components/ui/SeasonEffect';
 import { SeasonEffect } from '@/lib/types';
 
 export default function HomePage() {
@@ -163,8 +163,9 @@ export default function HomePage() {
           }}
         >
           <div className="container" style={{ maxWidth: '720px' }}>
+            {seasonEffect !== 'none' && <SeasonHeroBadge effect={seasonEffect} />}
             <h1
-              className={`hero-title ${getSeasonTitleClass((settings?.season_effect || 'none') as SeasonEffect)}`}
+              className={`hero-title ${getSeasonTitleClass(seasonEffect)}`}
               style={{
                 fontSize: '2rem',
                 fontWeight: 900,

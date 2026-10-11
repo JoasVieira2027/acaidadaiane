@@ -8,18 +8,24 @@ import { useLanguage } from '@/context/LanguageContext';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
 import { StoreStatusBadge } from './StoreStatusBadge';
+import { SeasonTopBanner } from './SeasonEffect';
+import { SeasonEffect } from '@/lib/types';
 
 export function Header() {
   const { totalItemCount, subtotal, setIsCartDrawerOpen } = useCart();
   const { t } = useLanguage();
   const [storeName, setStoreName] = useState('Açaí da Daiane');
+  const [seasonEffect, setSeasonEffect] = useState<SeasonEffect>('none');
+  const [seasonBannerText, setSeasonBannerText] = useState<string>('');
 
   const fetchStoreInfo = () => {
     fetch('/api/store-status', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.settings?.store_name) {
-          setStoreName(data.settings.store_name);
+        if (data.success && data.settings) {
+          if (data.settings.store_name) setStoreName(data.settings.store_name);
+          setSeasonEffect((data.settings.season_effect || 'none') as SeasonEffect);
+          setSeasonBannerText(data.settings.season_banner_text || '');
         }
       })
       .catch(() => {});
@@ -52,6 +58,9 @@ export function Header() {
 
   return (
     <header className="site-header">
+      {seasonEffect !== 'none' && (
+        <SeasonTopBanner effect={seasonEffect} customText={seasonBannerText} />
+      )}
       <div className="container header-inner">
 
         {/* Marca & Status */}
