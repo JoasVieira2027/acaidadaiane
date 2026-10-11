@@ -10,6 +10,17 @@ export const metadata: Metadata = {
     'Cardápio digital oficial do Açaí Daiane. Peça seu açaí artesanal, tigelas e barcas com frutas frescas, adicionais nobres e entrega rápida em Recife.',
   keywords: ['açaí', 'cardápio digital', 'pedidos online', 'delivery recife', 'açaí artesanal'],
   authors: [{ name: 'Açaí Daiane' }],
+  icons: {
+    icon: [
+      { url: '/logo.png', type: 'image/png' },
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico' },
+    ],
+    shortcut: '/logo.png',
+    apple: [
+      { url: '/logo.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
