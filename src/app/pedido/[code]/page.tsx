@@ -219,37 +219,6 @@ export default function OrderTrackingPage({
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Header />
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ color: 'var(--text-muted)' }}>Carregando dados do pedido...</p>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!order) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Header />
-        <div className="container" style={{ flex: 1, padding: '3rem 1rem', textAlign: 'center' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>Pedido não encontrado</h1>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-            Não encontramos um pedido com o código #{code}.
-          </p>
-          <Link href="/" className="btn btn-primary">
-            <ArrowLeft size={16} />
-            <span>Voltar ao Cardápio</span>
-          </Link>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
   const { whatsAppMessage, whatsAppUrl } = React.useMemo(() => {
     if (!order) return { whatsAppMessage: '', whatsAppUrl: '' };
     try {
@@ -288,6 +257,37 @@ export default function OrderTrackingPage({
       return () => clearTimeout(timer);
     }
   }, [order?.payment_status, order?.payment_method, whatsAppUrl]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ color: 'var(--text-muted)' }}>Carregando dados do pedido...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Header />
+        <div className="container" style={{ flex: 1, padding: '3rem 1rem', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>Pedido não encontrado</h1>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+            Não encontramos um pedido com o código #{code}.
+          </p>
+          <Link href="/" className="btn btn-primary">
+            <ArrowLeft size={16} />
+            <span>Voltar ao Cardápio</span>
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   const isPixPending = order.payment_method === 'pix' && order.payment_status !== 'paid';
   const currentStepIndex = statusSteps.findIndex((s) => s.key === order.order_status);
