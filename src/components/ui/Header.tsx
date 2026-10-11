@@ -89,6 +89,19 @@ export function Header() {
 
           <ThemeToggle />
 
+          {/* Link Meus Pedidos — visível em telas médias+ */}
+          <Link
+            href="/meus-pedidos"
+            className="btn btn-secondary btn-sm"
+            style={{ borderRadius: 'var(--radius-full)', display: 'none' }}
+            id="header-meus-pedidos"
+          >
+            <span>Meus Pedidos</span>
+          </Link>
+          <style>{`
+            @media (min-width: 600px) { #header-meus-pedidos { display: inline-flex !important; } }
+          `}</style>
+
           <button
             type="button"
             onClick={() => setIsCartDrawerOpen(true)}
