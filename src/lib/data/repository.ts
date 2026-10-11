@@ -430,6 +430,7 @@ export const repository = {
           is_available: prod.is_available !== undefined ? Boolean(prod.is_available) : true,
           allow_notes: prod.allow_notes !== undefined ? Boolean(prod.allow_notes) : true,
           display_order: prod.display_order !== undefined ? Number(prod.display_order) : 0,
+          sizes: prod.sizes && Array.isArray(prod.sizes) && prod.sizes.length > 0 ? prod.sizes : null,
           updated_at: new Date().toISOString(),
         };
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { X, Plus, Minus, Check, AlertCircle } from 'lucide-react';
-import { CartItem, Option, OptionGroup, Product, SelectedOption } from '@/lib/types';
+import { CartItem, Option, OptionGroup, Product, ProductSize, SelectedOption } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -17,14 +17,30 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
   const { addItem, updateItem } = useCart();
   const { t, localize } = useLanguage();
 
+  const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+
   const [quantity, setQuantity] = useState(editingCartItem?.quantity || 1);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(() => {
+    if (!hasSizes) return null;
+    // Ao editar item do carrinho, tentar recuperar o tamanho selecionado
+    if (editingCartItem?.selected_options) {
+      const sizeOpt = editingCartItem.selected_options.find((o) => o.group_name === 'TAMANHO');
+      if (sizeOpt) {
+        const match = product.sizes!.find((s) => s.label === sizeOpt.option_name);
+        if (match) return match;
+      }
+    }
+    return null;
+  });
   const [selectedOptionsMap, setSelectedOptionsMap] = useState<Record<string, SelectedOption[]>>(() => {
     const map: Record<string, SelectedOption[]> = {};
     if (editingCartItem?.selected_options) {
-      editingCartItem.selected_options.forEach((opt) => {
-        if (!map[opt.group_id]) map[opt.group_id] = [];
-        map[opt.group_id].push(opt);
-      });
+      editingCartItem.selected_options
+        .filter((opt) => opt.group_name !== 'TAMANHO')
+        .forEach((opt) => {
+          if (!map[opt.group_id]) map[opt.group_id] = [];
+          map[opt.group_id].push(opt);
+        });
     }
     return map;
   });
@@ -34,9 +50,10 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
   const productName = localize(product, 'name');
   const productDescription = localize(product, 'description');
 
-  const basePrice = product.is_promo_active && product.promotional_price
-    ? product.promotional_price
-    : product.price;
+  // Preço base: se tem tamanho selecionado, usa o preço do tamanho; senão, usa o preço do produto
+  const basePrice = hasSizes && selectedSize
+    ? selectedSize.price
+    : (product.is_promo_active && product.promotional_price ? product.promotional_price : product.price);
 
   // Calcula adicional de todas as opções selecionadas
   const optionsTotal = Object.values(selectedOptionsMap)
@@ -102,6 +119,12 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
   };
 
   const handleAddToCart = () => {
+    // Validar tamanho obrigatório
+    if (hasSizes && !selectedSize) {
+      setValidationError('Por favor, selecione um tamanho antes de continuar.');
+      return;
+    }
+
     // Validar se todos os grupos obrigatórios foram atendidos
     if (product.option_groups) {
       for (const group of product.option_groups) {
@@ -116,14 +139,31 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
       }
     }
 
-    const allSelected = Object.values(selectedOptionsMap).flat();
+    // Montar opções: tamanho selecionado como SelectedOption + demais opções
+    const sizeOption: SelectedOption | null = selectedSize
+      ? {
+          option_id: `size-${selectedSize.label}`,
+          group_id: 'size-group',
+          group_name: 'TAMANHO',
+          option_name: selectedSize.label,
+          price: 0, // preço já incorporado no basePrice
+          quantity: 1,
+        }
+      : null;
+
+    const allSelected = [
+      ...(sizeOption ? [sizeOption] : []),
+      ...Object.values(selectedOptionsMap).flat(),
+    ];
+
     if (editingCartItem) {
       updateItem(editingCartItem.cart_id, quantity, allSelected, itemNotes.trim() || undefined);
     } else {
-      addItem(product, quantity, allSelected, itemNotes.trim() || undefined);
+      addItem(product, quantity, allSelected, itemNotes.trim() || undefined, hasSizes && selectedSize ? selectedSize.price : undefined);
     }
     onClose();
   };
+
 
   const formattedFinalPrice = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -188,7 +228,70 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
             </div>
           )}
 
+          {/* Seletor de Tamanhos */}
+          {hasSizes && (
+            <div
+              style={{
+                backgroundColor: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1.25rem',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>TAMANHO</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Obrigatório • Escolha 1</p>
+                </div>
+                <span className="badge badge-brand" style={{ fontSize: '0.75rem' }}>
+                  {selectedSize ? '1/1' : '0/1'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {product.sizes!.map((size, idx) => {
+                  const isSelected = selectedSize?.label === size.label;
+                  const sizePrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(size.price);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => { setSelectedSize(size); setValidationError(null); }}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        padding: '0.65rem 1rem',
+                        minWidth: '70px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: isSelected ? 'var(--bg-accent-subtle)' : 'var(--bg-secondary)',
+                        border: isSelected ? '2px solid var(--brand-primary)' : '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span style={{ fontWeight: 800, fontSize: '1rem', color: isSelected ? 'var(--brand-primary)' : 'var(--text-primary)' }}>
+                        {size.label}
+                      </span>
+                      {size.volume && (
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{size.volume}</span>
+                      )}
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isSelected ? 'var(--brand-primary)' : 'var(--text-secondary)', marginTop: '4px' }}>
+                        {sizePrice}
+                      </span>
+                      {isSelected && (
+                        <span style={{ marginTop: '4px' }}>
+                          <Check size={14} color="var(--brand-primary)" strokeWidth={3} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {product.option_groups && product.option_groups.length > 0 ? (
+
             product.option_groups.map((group) => {
               if (!group.is_active) return null;
               const chosen = selectedOptionsMap[group.id] || [];

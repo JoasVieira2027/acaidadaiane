@@ -62,6 +62,13 @@ export type OptionGroup = {
   options?: Option[];
 };
 
+
+export type ProductSize = {
+  label: string;        // Ex: "P", "M", "G", "GG"
+  volume: string;       // Ex: "300ml", "500ml", "1L"
+  price: number;        // Preço deste tamanho
+};
+
 export type Product = {
   id: string;
   category_id: string;
@@ -83,8 +90,10 @@ export type Product = {
   is_available: boolean;
   allow_notes: boolean;
   display_order: number;
+  sizes?: ProductSize[] | null;
   option_groups?: OptionGroup[];
 };
+
 
 export type Neighborhood = {
   id: string;

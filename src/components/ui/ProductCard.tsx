@@ -18,14 +18,24 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const description = localize(product, 'description');
 
   const hasPromo = product.is_promo_active && product.promotional_price;
-  const currentPrice = hasPromo ? product.promotional_price! : product.price;
+  const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
+
+  // Se tem tamanhos, o preço exibido é o menor tamanho (ou o preço base)
+  const minSizePrice = hasSizes
+    ? Math.min(...product.sizes!.map((s) => Number(s.price) || 0))
+    : null;
+  const currentPrice = hasPromo
+    ? product.promotional_price!
+    : hasSizes && minSizePrice !== null
+    ? minSizePrice
+    : product.price;
 
   const formattedPrice = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(currentPrice);
 
-  const formattedOldPrice = product.price
+  const formattedOldPrice = hasPromo && product.price
     ? new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
@@ -147,6 +157,33 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
           {description && <p className="product-card-desc">{description}</p>}
         </div>
 
+        {/* Badges de Tamanhos */}
+        {hasSizes && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
+            {product.sizes!.map((size, idx) => (
+              <span
+                key={idx}
+                style={{
+                  display: 'inline-flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '0.2rem 0.5rem',
+                  backgroundColor: 'var(--bg-accent-subtle)',
+                  border: '1px solid var(--brand-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.7rem',
+                  lineHeight: 1.3,
+                }}
+              >
+                <span style={{ fontWeight: 800, color: 'var(--brand-primary)' }}>{size.label}</span>
+                {size.volume && (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>{size.volume}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Preço e Botão */}
         <div className="product-card-footer">
           <div>
@@ -172,6 +209,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
                 letterSpacing: '-0.02em',
               }}
             >
+              {hasSizes && !hasPromo && <span style={{ fontSize: '0.7rem', fontWeight: 500, marginRight: '2px' }}>a partir de</span>}
               {formattedPrice}
             </span>
           </div>

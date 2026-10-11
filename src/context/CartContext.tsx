@@ -5,7 +5,7 @@ import { CartItem, Coupon, Neighborhood, Product, SelectedOption } from '../lib/
 
 type CartContextType = {
   items: CartItem[];
-  addItem: (product: Product, quantity: number, selectedOptions: SelectedOption[], notes?: string) => void;
+  addItem: (product: Product, quantity: number, selectedOptions: SelectedOption[], notes?: string, basePriceOverride?: number) => void;
   updateItem: (cartId: string, quantity: number, selectedOptions: SelectedOption[], notes?: string) => void;
   updateQuantity: (cartId: string, quantity: number) => void;
   removeItem: (cartId: string) => void;
@@ -75,11 +75,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     product: Product,
     quantity: number,
     selectedOptions: SelectedOption[],
-    notes?: string
+    notes?: string,
+    basePriceOverride?: number
   ) => {
-    const basePrice = product.is_promo_active && product.promotional_price
-      ? product.promotional_price
-      : product.price;
+    const basePrice = basePriceOverride !== undefined
+      ? basePriceOverride
+      : (product.is_promo_active && product.promotional_price
+        ? product.promotional_price
+        : product.price);
 
     const optionsAdditional = selectedOptions.reduce(
       (sum, opt) => sum + (opt.price * (opt.quantity || 1)),

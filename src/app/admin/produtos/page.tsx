@@ -21,7 +21,10 @@ export default function AdminProductsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<ProductWithMeta> | null>(null);
-  const [activeSection, setActiveSection] = useState<'info' | 'image' | 'groups'>('info');
+  const [activeSection, setActiveSection] = useState<'info' | 'image' | 'groups' | 'sizes'>('info');
+
+  // Tamanhos do produto
+  const [editingSizes, setEditingSizes] = useState<Array<{ label: string; volume: string; price: string }>>([]);
 
   // Imagem
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -145,6 +148,7 @@ export default function AdminProductsPage() {
       is_featured: false,
     });
     setSelectedGroupIds([]);
+    setEditingSizes([]);
     setImagePreview(null);
     setImageFile(null);
     setImageError(null);
@@ -157,6 +161,13 @@ export default function AdminProductsPage() {
     setEditingProduct({ ...p });
     const gids = p.option_groups?.map((g: any) => g.id) || [];
     setSelectedGroupIds(gids);
+    // Carregar tamanhos existentes
+    const existingSizes = Array.isArray(p.sizes) ? p.sizes.map((s: any) => ({
+      label: s.label || '',
+      volume: s.volume || '',
+      price: String(s.price ?? ''),
+    })) : [];
+    setEditingSizes(existingSizes);
     setImagePreview(p.image_url || null);
     setImageFile(null);
     setImageError(null);
@@ -466,6 +477,15 @@ export default function AdminProductsPage() {
         return isNaN(n) ? 0 : n;
       };
 
+      // Processar tamanhos
+      const sizesData = editingSizes
+        .filter((s) => s.label.trim())
+        .map((s) => ({
+          label: s.label.trim(),
+          volume: s.volume.trim(),
+          price: parsePrice(s.price),
+        }));
+
       const payload = {
         product: {
           ...editingProduct,
@@ -474,6 +494,7 @@ export default function AdminProductsPage() {
           promotional_price: editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
             ? parsePrice(editingProduct.promotional_price)
             : null,
+          sizes: sizesData.length > 0 ? sizesData : null,
         },
         option_group_ids: selectedGroupIds,
       };
@@ -735,8 +756,8 @@ export default function AdminProductsPage() {
 
             {/* Tabs de seções */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)' }}>
-              {(['info', 'image', 'groups'] as const).map((sec) => {
-                const labels: Record<string, string> = { info: '📋 Informações', image: '🖼️ Imagem', groups: '🔧 Complementos' };
+              {(['info', 'sizes', 'image', 'groups'] as const).map((sec) => {
+                const labels: Record<string, string> = { info: '📋 Informações', sizes: '📏 Tamanhos', image: '🖼️ Imagem', groups: '🔧 Complementos' };
                 return (
                   <button
                     key={sec}
@@ -875,6 +896,89 @@ export default function AdminProductsPage() {
                       </div>
                     </div>
                   </>
+                )}
+
+                {/* ── SEÇÃO: TAMANHOS ── */}
+                {activeSection === 'sizes' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          Configure os tamanhos disponíveis (P, M, G, GG) com volume em ml ou litros e preço.
+                        </p>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                          💡 O menor preço dos tamanhos substituirá o preço base no card do produto.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingSizes((prev) => [...prev, { label: '', volume: '', price: '' }])}
+                        className="btn btn-secondary btn-sm"
+                        style={{ color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)', whiteSpace: 'nowrap' }}
+                      >
+                        <Plus size={15} />
+                        <span>Adicionar Tamanho</span>
+                      </button>
+                    </div>
+
+                    {editingSizes.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', border: '2px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                        <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Nenhum tamanho configurado</p>
+                        <p style={{ fontSize: '0.8rem' }}>Clique em "Adicionar Tamanho" para começar.</p>
+                      </div>
+                    )}
+
+                    {editingSizes.map((size, idx) => (
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 110px auto', gap: '0.5rem', alignItems: 'end', backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.72rem' }}>Tamanho *</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="P, M, G..."
+                            value={size.label}
+                            onChange={(e) => setEditingSizes((prev) => prev.map((s, i) => i === idx ? { ...s, label: e.target.value } : s))}
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.72rem' }}>Volume / Descrição</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="300ml, 500ml, 1L..."
+                            value={size.volume}
+                            onChange={(e) => setEditingSizes((prev) => prev.map((s, i) => i === idx ? { ...s, volume: e.target.value } : s))}
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.72rem' }}>Preço (R$) *</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="form-input"
+                            placeholder="0,00"
+                            value={size.price}
+                            onChange={(e) => setEditingSizes((prev) => prev.map((s, i) => i === idx ? { ...s, price: e.target.value } : s))}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingSizes((prev) => prev.filter((_, i) => i !== idx))}
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: 'var(--danger)', padding: '0.4rem', height: '38px', alignSelf: 'flex-end' }}
+                          title="Remover tamanho"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {editingSizes.length > 0 && (
+                      <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        Prévia no card: {editingSizes.filter(s => s.label).map((s) => `${s.label}${s.volume ? ` (${s.volume})` : ''}`).join(' • ')}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* ── SEÇÃO: IMAGEM ── */}

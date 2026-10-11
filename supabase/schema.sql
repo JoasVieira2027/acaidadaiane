@@ -104,9 +104,14 @@ CREATE TABLE IF NOT EXISTS products (
     is_available BOOLEAN DEFAULT TRUE,
     allow_notes BOOLEAN DEFAULT TRUE,
     display_order INT DEFAULT 0,
+    sizes JSONB DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Adicionar sizes a bancos existentes (idempotente)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sizes JSONB DEFAULT NULL;
+
 
 -- 6. RELACIONAMENTO PRODUTO X GRUPOS DE ADICIONAIS
 CREATE TABLE IF NOT EXISTS product_option_groups (
