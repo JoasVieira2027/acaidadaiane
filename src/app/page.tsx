@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Flame, Tag, Sparkles, Clock, Bike, Zap } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, Flame, Tag, Sparkles, Clock, Bike, Zap, ChevronDown } from 'lucide-react';
 import { Category, Product, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 import { Header } from '@/components/ui/Header';
@@ -24,6 +24,8 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeHighlight, setActiveHighlight] = useState<'all' | 'promo' | 'bestseller' | 'new'>('all');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   // Modal de produto
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -98,6 +100,17 @@ export default function HomePage() {
       clearInterval(productsInterval);
     };
   }, [fetchData]);
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setCategoryDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -284,37 +297,111 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Pílulas de Categorias do Catálogo */}
-            <div
-              className="filters-scroll"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                overflowX: 'auto',
-                paddingBottom: '0.5rem',
-              }}
-            >
+            {/* Dropdown de Categorias */}
+            <div ref={categoryDropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
               <button
                 type="button"
-                onClick={() => setSelectedCategory('all')}
-                className={`btn btn-sm ${selectedCategory === 'all' ? 'btn-primary' : 'btn-outline'}`}
-                style={{ borderRadius: 'var(--radius-full)', fontSize: '0.85rem' }}
+                onClick={() => setCategoryDropdownOpen((prev) => !prev)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'border-color 0.15s ease',
+                  minWidth: '200px',
+                  justifyContent: 'space-between',
+                }}
               >
-                Todas as Categorias
+                <span>
+                  {selectedCategory === 'all'
+                    ? 'Lista de categorias'
+                    : categories.find((c) => c.id === selectedCategory)
+                      ? localize(categories.find((c) => c.id === selectedCategory)!, 'name')
+                      : 'Lista de categorias'}
+                </span>
+                <ChevronDown
+                  size={16}
+                  style={{
+                    transition: 'transform 0.2s ease',
+                    transform: categoryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    flexShrink: 0,
+                  }}
+                />
               </button>
 
-              {categories.map((cat) => (
-                <button
-                  type="button"
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`btn btn-sm ${selectedCategory === cat.id ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ borderRadius: 'var(--radius-full)', fontSize: '0.85rem' }}
+              {categoryDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    zIndex: 200,
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-lg)',
+                    minWidth: '220px',
+                    maxHeight: '320px',
+                    overflowY: 'auto',
+                    animation: 'dropdownFadeIn 0.15s ease',
+                  }}
                 >
-                  {localize(cat, 'name')}
-                </button>
-              ))}
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedCategory('all'); setCategoryDropdownOpen(false); }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.65rem 1rem',
+                      fontSize: '0.875rem',
+                      fontWeight: selectedCategory === 'all' ? 600 : 400,
+                      color: selectedCategory === 'all' ? 'var(--brand-primary)' : 'var(--text-primary)',
+                      backgroundColor: selectedCategory === 'all' ? 'var(--bg-accent-subtle)' : 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.1s ease',
+                    }}
+                    onMouseEnter={(e) => { if (selectedCategory !== 'all') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--bg-tertiary)'; }}
+                    onMouseLeave={(e) => { if (selectedCategory !== 'all') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
+                  >
+                    Todas as Categorias
+                  </button>
+
+                  {categories.map((cat) => (
+                    <button
+                      type="button"
+                      key={cat.id}
+                      onClick={() => { setSelectedCategory(cat.id); setCategoryDropdownOpen(false); }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '0.65rem 1rem',
+                        fontSize: '0.875rem',
+                        fontWeight: selectedCategory === cat.id ? 600 : 400,
+                        color: selectedCategory === cat.id ? 'var(--brand-primary)' : 'var(--text-primary)',
+                        backgroundColor: selectedCategory === cat.id ? 'var(--bg-accent-subtle)' : 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.1s ease',
+                      }}
+                      onMouseEnter={(e) => { if (selectedCategory !== cat.id) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--bg-tertiary)'; }}
+                      onMouseLeave={(e) => { if (selectedCategory !== cat.id) (e.currentTarget as HTMLButtonElement).style.backgroundColor = selectedCategory === cat.id ? 'var(--bg-accent-subtle)' : 'transparent'; }}
+                    >
+                      {localize(cat, 'name')}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </section>
