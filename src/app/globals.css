@@ -868,4 +868,152 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   }
 }
 
+/* ══════════════════════════════════════════════════════
+   SEASON EFFECTS — 100% CSS GPU compositor animations
+   (transform + opacity only → zero repaints, zero JS)
+   ══════════════════════════════════════════════════════ */
 
+/* ── Container ── */
+.se-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+/* ── Base particle ── */
+.se-particle {
+  position: absolute;
+  top: -20px;
+  will-change: transform, opacity;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+/* ════════════════════════
+   ❄ NATAL — Snowflakes
+   ════════════════════════ */
+.se-snow {
+  animation-name: se-snowfall;
+}
+
+@keyframes se-snowfall {
+  0%   { transform: translateY(-20px) translateX(0)   rotate(0deg);   opacity: 0; }
+  5%   { opacity: 0.85; }
+  85%  { opacity: 0.6; }
+  100% { transform: translateY(105vh) translateX(40px) rotate(360deg); opacity: 0; }
+}
+
+/* Name gradient: red → green shimmer */
+.se-title-christmas {
+  background: linear-gradient(90deg, #c8102e, #00843d, #c8102e, #ffffff, #c8102e);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: se-gradient-christmas 4s linear infinite;
+}
+
+@keyframes se-gradient-christmas {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* ════════════════════════
+   ✨ ANO NOVO — Sparkles
+   ════════════════════════ */
+.se-spark {
+  animation-name: se-sparkrise;
+}
+
+@keyframes se-sparkrise {
+  0%   { transform: translateY(105vh) translateX(0)    scale(0) rotate(0deg);   opacity: 0; }
+  10%  { opacity: 1;  }
+  50%  { transform: translateY(40vh) translateX(30px)  scale(1) rotate(180deg); opacity: 0.9; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-20px) translateX(-10px) scale(0.3) rotate(360deg); opacity: 0; }
+}
+
+/* Name: gold metallic shimmer */
+.se-title-new_year {
+  background: linear-gradient(90deg, #b8860b, #ffd700, #fffacd, #ffd700, #b8860b);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: se-gradient-gold 2.5s linear infinite;
+  text-shadow: none;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5));
+}
+
+@keyframes se-gradient-gold {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* ════════════════════════
+   🎭 CARNAVAL — Confetti
+   ════════════════════════ */
+.se-confetti {
+  animation-name: se-conffall;
+}
+
+@keyframes se-conffall {
+  0%   { transform: translateY(-20px) translateX(0)    rotate(0deg)   scaleX(1);  opacity: 0; }
+  5%   { opacity: 1; }
+  50%  { transform: translateY(50vh) translateX(60px)  rotate(360deg) scaleX(-1); opacity: 0.9; }
+  100% { transform: translateY(105vh) translateX(-30px) rotate(720deg) scaleX(1);  opacity: 0; }
+}
+
+/* Name: fast rainbow cycle */
+.se-title-carnival {
+  background: linear-gradient(90deg,
+    hsl(0,90%,60%), hsl(40,90%,60%), hsl(80,85%,55%),
+    hsl(180,85%,55%), hsl(240,85%,65%), hsl(300,85%,65%), hsl(0,90%,60%)
+  );
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: se-gradient-carnival 2s linear infinite;
+}
+
+@keyframes se-gradient-carnival {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 400% 50%; }
+}
+
+/* ════════════════════════
+   🌸 PÁSCOA — Petals
+   ════════════════════════ */
+.se-petal {
+  animation-name: se-petalfall;
+}
+
+@keyframes se-petalfall {
+  0%   { transform: translateY(-20px) translateX(0)    rotate(0deg)   scale(1);   opacity: 0; }
+  8%   { opacity: 0.9; }
+  50%  { transform: translateY(50vh) translateX(-50px) rotate(180deg) scale(0.8); opacity: 0.7; }
+  100% { transform: translateY(105vh) translateX(30px) rotate(360deg) scale(0.5); opacity: 0; }
+}
+
+/* Name: pastel rainbow shimmer */
+.se-title-easter {
+  background: linear-gradient(90deg,
+    hsl(310,70%,72%), hsl(55,80%,68%), hsl(140,60%,60%),
+    hsl(200,70%,68%), hsl(280,65%,72%), hsl(310,70%,72%)
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: se-gradient-easter 3.5s ease-in-out infinite;
+}
+
+@keyframes se-gradient-easter {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 150% 50%; }
+  100% { background-position: 300% 50%; }
+}

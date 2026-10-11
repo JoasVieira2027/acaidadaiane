@@ -31,6 +31,7 @@ export const initialSettings: StoreSettings = {
   allow_pickup: true,
   allow_delivery: true,
   default_locale: 'pt-BR',
+  season_effect: 'none',
 };
 
 export const initialCategories: Category[] = [

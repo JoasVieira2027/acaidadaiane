@@ -10,6 +10,8 @@ import { ProductCard } from '@/components/ui/ProductCard';
 import { ProductModal } from '@/components/ui/ProductModal';
 import { CartDrawer } from '@/components/ui/CartDrawer';
 import { CheckoutModal } from '@/components/ui/CheckoutModal';
+import { SeasonEffectLayer, getSeasonTitleClass } from '@/components/ui/SeasonEffect';
+import { SeasonEffect } from '@/lib/types';
 
 export default function HomePage() {
   const { t, localize } = useLanguage();
@@ -142,8 +144,11 @@ export default function HomePage() {
     }).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }, [products, selectedCategory, activeHighlight, searchQuery]);
 
+  const seasonEffect = (settings?.season_effect || 'none') as SeasonEffect;
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {seasonEffect !== 'none' && <SeasonEffectLayer effect={seasonEffect} />}
       <Header />
 
       <main className="main-content">
@@ -159,7 +164,7 @@ export default function HomePage() {
         >
           <div className="container" style={{ maxWidth: '720px' }}>
             <h1
-              className="hero-title"
+              className={`hero-title ${getSeasonTitleClass((settings?.season_effect || 'none') as SeasonEffect)}`}
               style={{
                 fontSize: '2rem',
                 fontWeight: 900,

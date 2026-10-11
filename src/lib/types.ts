@@ -1,3 +1,5 @@
+export type SeasonEffect = 'none' | 'christmas' | 'easter' | 'new_year' | 'carnival';
+
 export type StoreSettings = {
   id: string;
   store_name: string;
@@ -19,7 +21,9 @@ export type StoreSettings = {
   allow_pickup: boolean;
   allow_delivery: boolean;
   default_locale: string;
+  season_effect?: SeasonEffect;
 };
+
 
 export type Category = {
   id: string;

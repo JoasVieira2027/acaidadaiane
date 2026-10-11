@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Save, CheckCircle, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
-import { StoreSettings } from '@/lib/types';
+import { Save, CheckCircle, ShieldCheck, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { StoreSettings, SeasonEffect } from '@/lib/types';
 import { initialSettings } from '@/lib/data/mockData';
 
 export default function AdminSettingsPage() {
@@ -292,6 +292,123 @@ export default function AdminSettingsPage() {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Efeitos Visuais Sazonais (Festas e Comemorações) */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+            <Sparkles size={20} style={{ color: 'var(--brand-primary)' }} />
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
+              Efeitos Visuais Comemorativos
+            </h2>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+            Ative animações visuais leves e elegantes no topo da loja e no nome da marca para datas comemorativas. 100% acelerado por hardware (GPU pura, sem emojis e sem travar a navegação do cliente).
+          </p>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '0.85rem',
+            }}
+          >
+            {[
+              {
+                id: 'none' as SeasonEffect,
+                label: 'Desativado',
+                sub: 'Tema limpo e padrão da loja',
+                badgeBg: 'var(--bg-tertiary)',
+                badgeColor: 'var(--text-muted)',
+              },
+              {
+                id: 'christmas' as SeasonEffect,
+                label: 'Natal',
+                sub: 'Neve caindo + brilho temático rubro e verde',
+                badgeBg: '#c8102e20',
+                badgeColor: '#c8102e',
+              },
+              {
+                id: 'new_year' as SeasonEffect,
+                label: 'Ano Novo',
+                sub: 'Faíscas estelares + brilho ouro metálico',
+                badgeBg: '#ffd70025',
+                badgeColor: '#b8860b',
+              },
+              {
+                id: 'carnival' as SeasonEffect,
+                label: 'Carnaval',
+                sub: 'Chuva de confetes + arco-íris vibrante',
+                badgeBg: '#8b5cf620',
+                badgeColor: '#8b5cf6',
+              },
+              {
+                id: 'easter' as SeasonEffect,
+                label: 'Páscoa',
+                sub: 'Pétalas suaves + gradiente pastel',
+                badgeBg: '#ec489920',
+                badgeColor: '#ec4899',
+              },
+            ].map((opt) => {
+              const isSelected = (settings.season_effect || 'none') === opt.id;
+              return (
+                <div
+                  key={opt.id}
+                  onClick={() => setSettings({ ...settings, season_effect: opt.id })}
+                  style={{
+                    border: isSelected
+                      ? '2px solid var(--brand-primary)'
+                      : '1px solid var(--border-color)',
+                    backgroundColor: isSelected
+                      ? 'var(--brand-primary-light, rgba(88, 28, 135, 0.06))'
+                      : 'var(--bg-primary)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.18s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                        {opt.label}
+                      </span>
+                      <input
+                        type="radio"
+                        name="season_effect"
+                        checked={isSelected}
+                        onChange={() => setSettings({ ...settings, season_effect: opt.id })}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.35 }}>
+                      {opt.sub}
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: 'var(--radius-sm, 4px)',
+                        backgroundColor: opt.badgeBg,
+                        color: opt.badgeColor,
+                      }}
+                    >
+                      {isSelected ? '✓ Ativo no Site' : 'Selecionar'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

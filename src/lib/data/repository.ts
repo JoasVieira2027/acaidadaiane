@@ -138,6 +138,18 @@ export const repository = {
         }
         if (error) {
           console.error('Erro updateSettings Supabase:', error);
+          if (error.message?.includes('season_effect')) {
+            const { season_effect: _se, ...safePayload } = payload as any;
+            const { data: retryData, error: retryErr } = await supabase
+              .from('store_settings')
+              .upsert(safePayload)
+              .select()
+              .single();
+            if (!retryErr && retryData) {
+              globalStore.settings = { ...globalStore.settings, ...retryData, ...updates };
+              return globalStore.settings;
+            }
+          }
         }
       } catch (err) {
         console.error('Erro updateSettings exception:', err);
