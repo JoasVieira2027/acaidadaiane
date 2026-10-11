@@ -72,6 +72,21 @@ const THEMES: Record<string, ParticleConfig> = {
       };
     },
   },
+  kids_day: {
+    size: [10, 24],
+    speedMs: [3500, 7500],
+    className: 'se-particle se-bubble',
+    getShape: (seed) => {
+      const hues = [190, 320, 45, 150, 270]; // cyan, pink, yellow, mint, purple
+      const hue = hues[seed % hues.length];
+      return {
+        borderRadius: '50%',
+        background: `radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 20%, hsla(${hue},85%,65%,0.35) 60%, hsla(${(hue + 60) % 360},90%,70%,0.6) 100%)`,
+        border: '1.5px solid rgba(255,255,255,0.7)',
+        boxShadow: `0 0 8px hsla(${hue},85%,65%,0.4), inset 0 0 6px rgba(255,255,255,0.6)`,
+      };
+    },
+  },
 };
 
 // ── deterministic pseudo-random (no Math.random so SSR-safe) ────────────────

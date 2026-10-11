@@ -350,6 +350,13 @@ export default function AdminSettingsPage() {
                 badgeBg: '#ec489920',
                 badgeColor: '#ec4899',
               },
+              {
+                id: 'kids_day' as SeasonEffect,
+                label: 'Dia das Crianças',
+                sub: 'Bolhas de sabão translúcidas + gradiente alegre candy-pop',
+                badgeBg: '#00d2ff25',
+                badgeColor: '#0099cc',
+              },
             ].map((opt) => {
               const isSelected = (settings.season_effect || 'none') === opt.id;
               return (

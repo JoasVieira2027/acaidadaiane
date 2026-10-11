@@ -1017,3 +1017,54 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   50%  { background-position: 150% 50%; }
   100% { background-position: 300% 50%; }
 }
+
+/* ══════════════════════════════
+   🎈 DIA DAS CRIANÇAS — Soap Bubbles
+   ══════════════════════════════ */
+.se-bubble {
+  animation-name: se-bubblefloat;
+}
+
+@keyframes se-bubblefloat {
+  0% {
+    transform: translateY(105vh) translateX(0) scale(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.85;
+    transform: translateY(90vh) translateX(15px) scale(0.9);
+  }
+  35% {
+    transform: translateY(60vh) translateX(-20px) scale(1.05);
+    opacity: 0.9;
+  }
+  70% {
+    transform: translateY(25vh) translateX(25px) scale(1);
+    opacity: 0.75;
+  }
+  95% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-40px) translateX(-10px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Name: vibrant candy-pop gradient */
+.se-title-kids_day {
+  background: linear-gradient(90deg,
+    #ff2a85, #00d2ff, #ffdd00, #a855f7, #00f59b, #ff2a85
+  );
+  background-size: 350% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: se-gradient-kids 2.8s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.45));
+}
+
+@keyframes se-gradient-kids {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 350% 50%; }
+}

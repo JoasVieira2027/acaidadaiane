@@ -1,4 +1,4 @@
-export type SeasonEffect = 'none' | 'christmas' | 'easter' | 'new_year' | 'carnival';
+export type SeasonEffect = 'none' | 'christmas' | 'easter' | 'new_year' | 'carnival' | 'kids_day';
 
 export type StoreSettings = {
   id: string;
