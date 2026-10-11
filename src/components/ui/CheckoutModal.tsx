@@ -37,6 +37,15 @@ export function CheckoutModal() {
 
   if (!isCheckoutModalOpen) return null;
 
+  const formatPhoneInput = (value: string) => {
+    // Remove tudo que não é dígito e limita a 11 dígitos (DDD + 9 dígitos)
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Bloquear se já está processando (evita pedido duplicado por cliques rápidos)
@@ -199,14 +208,16 @@ export function CheckoutModal() {
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">{t.checkout.phone} *</label>
+                 <label className="form-label">{t.checkout.phone} *</label>
                 <input
                   type="tel"
                   required
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  onChange={(e) => setCustomerPhone(formatPhoneInput(e.target.value))}
                   placeholder="(81) 99999-9999"
                   className="form-input"
+                  maxLength={16}
+                  inputMode="numeric"
                 />
               </div>
             </div>

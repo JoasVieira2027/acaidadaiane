@@ -79,7 +79,7 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
 
   const lines: string[] = [];
 
-  lines.push(`Olá, ${storeName}! 👋`);
+  lines.push(`Ola, ${storeName}!`);
   lines.push(`Acabei de realizar um pedido pelo site e gostaria de confirmá-lo.`);
   lines.push('');
   lines.push(`*DETALHES DO MEU PEDIDO*`);
@@ -164,7 +164,7 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí D
   }
 
   lines.push('----------------------------------------');
-  lines.push('Aguardo a confirmação. Obrigado(a)! 😊');
+  lines.push('Aguardo a confirmacao. Obrigado(a)!');
 
   return lines.join('\n');
 }
