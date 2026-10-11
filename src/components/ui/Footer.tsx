@@ -231,6 +231,7 @@ export function Footer() {
           <p>© {new Date().getFullYear()} {settings.store_name || 'Açaí da Daiane'}. Todos os direitos reservados.</p>
           <div style={{ display: 'flex', gap: '1.25rem' }}>
             <Link href="/" style={{ color: 'var(--text-muted)' }}>Cardápio</Link>
+            <Link href="/meus-pedidos" style={{ color: 'var(--text-muted)' }}>Meus Pedidos</Link>
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Flame, Tag, Sparkles, Clock, Bike, Zap, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Flame, Tag, Sparkles, Clock, Bike, Zap, ChevronDown, ClipboardList } from 'lucide-react';
 import { Category, Product, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 import { Header } from '@/components/ui/Header';
@@ -209,6 +210,21 @@ export default function HomePage() {
                 <Zap size={13} style={{ color: 'var(--brand-primary)' }} />
                 Pix & Cartão
               </span>
+              <span style={{ opacity: 0.4 }}>•</span>
+              <Link
+                href="/meus-pedidos"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  color: 'var(--brand-primary)',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                <ClipboardList size={13} />
+                Meus Pedidos
+              </Link>
               {storeStatus && !storeStatus.isOpen && storeStatus.nextOpenTime && (
                 <>
                   <span style={{ opacity: 0.4 }}>•</span>

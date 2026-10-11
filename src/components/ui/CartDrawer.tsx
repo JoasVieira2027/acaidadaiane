@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, Plus, Minus, Tag, MapPin, AlertCircle, ShoppingBag, Pencil } from 'lucide-react';
+import Link from 'next/link';
+import { X, Trash2, Plus, Minus, Tag, MapPin, AlertCircle, ShoppingBag, Pencil, ClipboardList } from 'lucide-react';
 import { CartItem, Neighborhood, StoreCurrentStatus } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -163,6 +164,15 @@ export function CartDrawer() {
               <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
                 Explore nossos copos e tigelas para adicionar opções deliciosas!
               </p>
+              <Link
+                href="/meus-pedidos"
+                onClick={() => setIsCartDrawerOpen(false)}
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '1.25rem', borderRadius: 'var(--radius-full)' }}
+              >
+                <ClipboardList size={16} />
+                <span>Acompanhar Meus Pedidos</span>
+              </Link>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

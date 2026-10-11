@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, ClipboardList } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -98,18 +98,17 @@ export function Header() {
 
           <ThemeToggle />
 
-          {/* Link Meus Pedidos — visível em telas médias+ */}
+          {/* Link Meus Pedidos — visível em todas as telas (mobile e desktop) */}
           <Link
             href="/meus-pedidos"
-            className="btn btn-secondary btn-sm"
-            style={{ borderRadius: 'var(--radius-full)', display: 'none' }}
-            id="header-meus-pedidos"
+            className="btn btn-secondary btn-sm header-orders-btn"
+            title="Acompanhar Meus Pedidos"
+            aria-label="Acompanhar Meus Pedidos"
           >
-            <span>Meus Pedidos</span>
+            <ClipboardList size={16} />
+            <span className="header-orders-label-desktop">Meus Pedidos</span>
+            <span className="header-orders-label-mobile">Pedidos</span>
           </Link>
-          <style>{`
-            @media (min-width: 600px) { #header-meus-pedidos { display: inline-flex !important; } }
-          `}</style>
 
           <button
             type="button"
