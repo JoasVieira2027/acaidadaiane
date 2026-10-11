@@ -20,13 +20,14 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const hasPromo = product.is_promo_active && product.promotional_price;
   const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
 
-  // Se tem tamanhos, o preço exibido é o menor tamanho (ou o preço base)
-  const minSizePrice = hasSizes
-    ? Math.min(...product.sizes!.map((s) => Number(s.price) || 0))
+  // Se tem tamanhos, o preço exibido é o menor tamanho com preço > 0 (ou o preço base do produto)
+  const sizesWithPrice = hasSizes ? product.sizes!.filter((s) => Number(s.price) > 0) : [];
+  const minSizePrice = sizesWithPrice.length > 0
+    ? Math.min(...sizesWithPrice.map((s) => Number(s.price)))
     : null;
   const currentPrice = hasPromo
     ? product.promotional_price!
-    : hasSizes && minSizePrice !== null
+    : minSizePrice !== null
     ? minSizePrice
     : product.price;
 
@@ -209,7 +210,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
                 letterSpacing: '-0.02em',
               }}
             >
-              {hasSizes && !hasPromo && <span style={{ fontSize: '0.7rem', fontWeight: 500, marginRight: '2px' }}>a partir de</span>}
+              {minSizePrice !== null && !hasPromo && <span style={{ fontSize: '0.7rem', fontWeight: 500, marginRight: '2px' }}>a partir de</span>}
               {formattedPrice}
             </span>
           </div>
