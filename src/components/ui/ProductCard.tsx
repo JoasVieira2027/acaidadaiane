@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Plus, Flame, Sparkles, Tag, Ban } from 'lucide-react';
+import { Plus, Flame, Sparkles, Tag } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -73,6 +73,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             sizes="(max-width: 768px) 110px, (max-width: 1200px) 33vw, 280px"
             className="product-card-img"
             priority={product.is_featured}
+            style={!product.is_available ? { filter: 'grayscale(60%) brightness(0.85)' } : undefined}
           />
         ) : (
           <div
@@ -125,28 +126,39 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
           )}
         </div>
 
-        {/* Overlay se indisponível */}
+        {/* Banner "Esgotado" diagonal no canto da imagem */}
         {!product.is_available && (
           <div
             style={{
               position: 'absolute',
-              inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.65)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: '0.3rem',
-              color: '#ffffff',
-              padding: '0.5rem',
-              textAlign: 'center',
+              top: 0,
+              right: 0,
+              width: '90px',
+              height: '90px',
+              overflow: 'hidden',
               zIndex: 3,
+              pointerEvents: 'none',
             }}
           >
-            <Ban size={20} style={{ color: 'var(--danger)' }} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-              {t.common.unavailable}
-            </span>
+            <div
+              style={{
+                position: 'absolute',
+                top: '18px',
+                right: '-22px',
+                width: '110px',
+                backgroundColor: '#4c1d95',
+                color: '#ffffff',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: '5px 0',
+                transform: 'rotate(45deg)',
+                letterSpacing: '0.5px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+              }}
+            >
+              Esgotado
+            </div>
           </div>
         )}
       </div>
