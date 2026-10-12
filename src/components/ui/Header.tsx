@@ -78,19 +78,10 @@ export function Header() {
               <span className="header-store-sub">Cardápio Digital &amp; Pedidos</span>
             </div>
           </Link>
-          {/* Badge de status: some em telas muito pequenas, aparece no centro */}
-          <div className="header-status-desktop">
-            <StoreStatusBadge />
-          </div>
         </div>
 
-        {/* Controles: Status (mobile), Idioma, Tema, Carrinho */}
+        {/* Controles: Idioma, Tema, Pedidos, Carrinho */}
         <div className="header-controls">
-          {/* Status badge aparece aqui só no mobile, junto dos controles */}
-          <div className="header-status-mobile">
-            <StoreStatusBadge />
-          </div>
-
           {/* Seletor de idioma: visível apenas em telas maiores */}
           <div className="header-lang">
             <LanguageSelector />

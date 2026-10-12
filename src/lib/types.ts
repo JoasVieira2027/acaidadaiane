@@ -225,4 +225,5 @@ export type StoreCurrentStatus = {
   message: string;
   reason: 'manually_opened' | 'manually_closed' | 'regular_schedule' | 'special_closure' | 'outside_hours';
   nextOpenTime?: string | null;
+  nextCloseTime?: string | null;
 };

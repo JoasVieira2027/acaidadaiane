@@ -101,45 +101,55 @@ export function calculateStoreStatus(
     (h) => h.day_of_week === dayOfWeek && !h.is_closed
   );
 
-  if (todaySchedules.length === 0) {
-    return {
-      isOpen: false,
-      message: settings.closed_message || 'Não atendemos neste dia da semana. Confira nossos horários!',
-      reason: 'outside_hours',
-    };
-  }
-
   // Verificar se o horário atual está dentro de algum intervalo do dia
   const matchingSchedule = todaySchedules.find((sched) => {
     return currentTimeString >= sched.open_time && currentTimeString <= sched.close_time;
   });
 
   if (matchingSchedule) {
+    const closeTimeFormatted = matchingSchedule.close_time.slice(0, 5).replace(':', 'h');
     return {
       isOpen: true,
-      message: settings.open_message || `Aberto hoje até às ${matchingSchedule.close_time}`,
+      message: settings.open_message || `Aberto hoje até às ${closeTimeFormatted}`,
       reason: 'regular_schedule',
-      nextOpenTime: matchingSchedule.close_time,
+      nextCloseTime: closeTimeFormatted,
     };
   }
 
-  // Se não estiver dentro de nenhum horário de hoje, pegar o próximo horário
+  // Se não estiver aberto agora, verificar se ainda abre hoje
   const upcomingToday = todaySchedules
     .filter((sched) => sched.open_time > currentTimeString)
     .sort((a, b) => a.open_time.localeCompare(b.open_time))[0];
 
   if (upcomingToday) {
+    const openTimeFormatted = upcomingToday.open_time.slice(0, 5).replace(':', 'h');
     return {
       isOpen: false,
-      message: `Fechado no momento. Abriremos hoje às ${upcomingToday.open_time}`,
+      message: `Fechado no momento. Abriremos hoje às ${openTimeFormatted}`,
       reason: 'outside_hours',
-      nextOpenTime: upcomingToday.open_time,
+      nextOpenTime: openTimeFormatted,
     };
+  }
+
+  // Se já passou o horário de hoje ou hoje é fechado, procurar o próximo dia que abre
+  for (let offset = 1; offset <= 7; offset++) {
+    const nextDay = (dayOfWeek + offset) % 7;
+    const nextDaySchedules = hours.filter((h) => h.day_of_week === nextDay && !h.is_closed);
+    if (nextDaySchedules.length > 0) {
+      const firstOpen = nextDaySchedules.sort((a, b) => a.open_time.localeCompare(b.open_time))[0];
+      const openTimeFormatted = firstOpen.open_time.slice(0, 5).replace(':', 'h');
+      return {
+        isOpen: false,
+        message: `Fechado no momento. Abriremos às ${openTimeFormatted}`,
+        reason: 'outside_hours',
+        nextOpenTime: openTimeFormatted,
+      };
+    }
   }
 
   return {
     isOpen: false,
-    message: settings.closed_message || 'Loja fechada no momento. Consulte nosso cardápio e volte logo!',
+    message: settings.closed_message || 'Loja fechada no momento.',
     reason: 'outside_hours',
   };
 }

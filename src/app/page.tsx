@@ -172,10 +172,12 @@ export default function HomePage() {
     if (!isOpen) {
       return storeStatus?.nextOpenTime
         ? `Fechado • Abrimos às ${storeStatus.nextOpenTime}`
-        : 'Fechado • Abrimos às 12h30';
+        : 'Fechado';
     }
-    return 'Aberto • Fechamos às 23h00';
-  }, [isOpen, storeStatus?.nextOpenTime]);
+    return storeStatus?.nextCloseTime
+      ? `Aberto • Fechamos às ${storeStatus.nextCloseTime}`
+      : 'Aberto';
+  }, [isOpen, storeStatus?.nextOpenTime, storeStatus?.nextCloseTime]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
@@ -277,7 +279,7 @@ export default function HomePage() {
             </div>
 
             {/* Nome e Linha de Informações */}
-            <div>
+            <div className="store-profile-text-desktop">
               <h1 className="store-title-desktop">{storeName}</h1>
               <div className="store-info-row-desktop">
                 <span style={{ color: isOpen ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
