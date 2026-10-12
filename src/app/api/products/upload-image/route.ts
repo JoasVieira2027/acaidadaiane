@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       url: urlData.publicUrl,
+      imageUrl: urlData.publicUrl,
       path: filePath,
     });
   } catch (error: any) {

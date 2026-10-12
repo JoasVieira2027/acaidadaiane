@@ -11,6 +11,9 @@ export default function AdminSettingsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -28,6 +31,52 @@ export default function AdminSettingsPage() {
         setIsLoading(false);
       });
   }, []);
+
+  const handleFileSelect = async (file: File, type: 'logo' | 'banner') => {
+    if (!file) return;
+    if (type === 'logo') setIsUploadingLogo(true);
+    else setIsUploadingBanner(true);
+    setErrorMessage(null);
+    setUploadFeedback(null);
+
+    const applyImage = (url: string) => {
+      setSettings((prev) => ({
+        ...prev,
+        [type === 'logo' ? 'logo_url' : 'banner_url']: url,
+      }));
+      setUploadFeedback(`${type === 'logo' ? 'Logo' : 'Banner'} carregado! Clique em "Salvar Configurações" abaixo.`);
+    };
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd });
+      const data = await res.json();
+      const uploadedUrl = data?.url || data?.imageUrl;
+
+      if (data.success && uploadedUrl) {
+        applyImage(uploadedUrl);
+      } else {
+        // Fallback para FileReader (Data URL) se o storage retornar erro
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const b64 = e.target?.result as string;
+          if (b64) applyImage(b64);
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const b64 = e.target?.result as string;
+        if (b64) applyImage(b64);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      if (type === 'logo') setIsUploadingLogo(false);
+      else setIsUploadingBanner(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,25 +263,24 @@ export default function AdminSettingsPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <label
                     className="btn btn-secondary btn-sm"
-                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.35rem' }}
+                    style={{ cursor: isUploadingLogo ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.35rem' }}
                   >
-                    <span>Carregar Imagem</span>
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 size={14} className="spinner" />
+                        <span>Carregando logo...</span>
+                      </>
+                    ) : (
+                      <span>Carregar Imagem da Logo</span>
+                    )}
                     <input
                       type="file"
+                      disabled={isUploadingLogo}
                       accept="image/png,image/jpeg,image/webp"
                       style={{ display: 'none' }}
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        try {
-                          const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd });
-                          const data = await res.json();
-                          if (data.success && data.imageUrl) {
-                            setSettings((prev) => ({ ...prev, logo_url: data.imageUrl }));
-                          }
-                        } catch {}
+                        if (file) handleFileSelect(file, 'logo');
                       }}
                     />
                   </label>
@@ -283,25 +331,24 @@ export default function AdminSettingsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
                 <label
                   className="btn btn-secondary btn-sm"
-                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  style={{ cursor: isUploadingBanner ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  <span>Carregar Imagem de Capa</span>
+                  {isUploadingBanner ? (
+                    <>
+                      <Loader2 size={14} className="spinner" />
+                      <span>Carregando banner...</span>
+                    </>
+                  ) : (
+                    <span>Carregar Foto da Capa</span>
+                  )}
                   <input
                     type="file"
+                    disabled={isUploadingBanner}
                     accept="image/png,image/jpeg,image/webp"
                     style={{ display: 'none' }}
-                    onChange={async (e) => {
+                    onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (!file) return;
-                      const fd = new FormData();
-                      fd.append('file', file);
-                      try {
-                        const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd });
-                        const data = await res.json();
-                        if (data.success && data.imageUrl) {
-                          setSettings((prev) => ({ ...prev, banner_url: data.imageUrl }));
-                        }
-                      } catch {}
+                      if (file) handleFileSelect(file, 'banner');
                     }}
                   />
                 </label>
@@ -324,6 +371,27 @@ export default function AdminSettingsPage() {
             </div>
 
           </div>
+
+          {uploadFeedback && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.65rem 0.85rem',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--success)',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
+              <CheckCircle size={15} />
+              <span>{uploadFeedback}</span>
+            </div>
+          )}
         </div>
 
         {/* Formas de Pagamento Habilitadas */}
