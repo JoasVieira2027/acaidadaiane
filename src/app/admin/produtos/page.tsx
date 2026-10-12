@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus, Edit, Trash2, Copy, Tag, Flame, Sparkles, X,
   ImageIcon, Upload, Link2, Link2Off, ChevronDown, ChevronUp,
-  AlertCircle, Check, Loader2, ArrowUp, ArrowDown,
+  AlertCircle, Check, Loader2, ArrowUp, ArrowDown, ShoppingBag,
 } from 'lucide-react';
 import { Product, Category, OptionGroup } from '@/lib/types';
 
@@ -721,10 +721,24 @@ export default function AdminProductsPage() {
                         <button
                           type="button"
                           onClick={() => handleToggleAvailable(p)}
-                          className={`badge ${p.is_available ? 'badge-success' : 'badge-danger'}`}
-                          style={{ cursor: 'pointer', border: 'none', background: 'none' }}
+                          title={p.is_available ? 'Clique para marcar como Esgotado' : 'Clique para marcar como Disponível'}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.3rem 0.7rem',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: 'none',
+                            backgroundColor: p.is_available ? 'var(--success-bg)' : 'var(--danger-bg)',
+                            color: p.is_available ? 'var(--success)' : 'var(--danger)',
+                            transition: 'all 0.15s ease',
+                          }}
                         >
-                          {p.is_available ? 'Disponível' : 'Indisponível'}
+                          <ShoppingBag size={13} />
+                          {p.is_available ? 'Disponível' : 'Esgotado'}
                         </button>
                       </td>
                       <td style={{ padding: '0.9rem 1rem', textAlign: 'right' }}>

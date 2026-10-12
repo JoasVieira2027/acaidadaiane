@@ -12,6 +12,7 @@ import { CartDrawer } from '@/components/ui/CartDrawer';
 import { CheckoutModal } from '@/components/ui/CheckoutModal';
 import { SeasonEffectLayer, getSeasonTitleClass, SeasonHeroBadge } from '@/components/ui/SeasonEffect';
 import { SeasonEffect } from '@/lib/types';
+import { PromoPopup } from '@/components/ui/PromoPopup';
 
 export default function HomePage() {
   const { t, localize } = useLanguage();
@@ -508,6 +509,12 @@ export default function HomePage() {
 
       <CartDrawer />
       <CheckoutModal />
+
+      {/* Popup automático de Promoções */}
+      <PromoPopup
+        products={products}
+        onSelectProduct={(p) => setSelectedProduct(p)}
+      />
 
       <Footer />
     </div>
