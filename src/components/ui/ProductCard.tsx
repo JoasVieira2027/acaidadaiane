@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Plus, Flame, Sparkles, Tag } from 'lucide-react';
+import { Flame, Sparkles, Tag } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -12,7 +12,7 @@ type ProductCardProps = {
 };
 
 export function ProductCard({ product, onSelect }: ProductCardProps) {
-  const { t, localize } = useLanguage();
+  const { localize } = useLanguage();
 
   const name = localize(product, 'name');
   const description = localize(product, 'description');
@@ -20,7 +20,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const hasPromo = product.is_promo_active && product.promotional_price;
   const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
 
-  // Se tem tamanhos, o preço exibido é o menor tamanho com preço > 0 (ou o preço base do produto)
+  // Se tem tamanhos, o menor tamanho com preço > 0
   const sizesWithPrice = hasSizes ? product.sizes!.filter((s) => Number(s.price) > 0) : [];
   const minSizePrice = sizesWithPrice.length > 0
     ? Math.min(...sizesWithPrice.map((s) => Number(s.price)))
@@ -63,190 +63,75 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
       }}
       aria-label={`Selecionar ${name}`}
     >
-      {/* Container da Imagem com Badges */}
+      {/* Corpo do card (Lado Esquerdo: Título, Descrição, Preço) */}
+      <div className="product-card-body">
+        <div style={{ minWidth: 0 }}>
+          <h3 className="product-card-title">{name}</h3>
+          {description && <p className="product-card-desc">{description}</p>}
+        </div>
+
+        {/* Preço no canto inferior esquerdo */}
+        <div className="product-card-price-wrap">
+          {hasPromo && formattedOldPrice && (
+            <span className="product-card-old-price">
+              {formattedOldPrice}
+            </span>
+          )}
+          <span className={`product-card-price ${hasPromo ? 'promo-price' : ''}`}>
+            {minSizePrice !== null && !hasPromo && (
+              <span className="product-card-from-text">a partir de </span>
+            )}
+            {formattedPrice}
+          </span>
+        </div>
+      </div>
+
+      {/* Imagem do Produto (Lado Direito: Thumbnail com cantos arredondados) */}
       <div className="product-card-img-wrap">
         {product.image_url ? (
           <Image
             src={product.image_url}
             alt={name}
             fill
-            sizes="(max-width: 768px) 110px, (max-width: 1200px) 33vw, 280px"
+            sizes="(max-width: 768px) 90px, 100px"
             className="product-card-img"
             priority={product.is_featured}
             style={!product.is_available ? { filter: 'grayscale(60%) brightness(0.85)' } : undefined}
           />
         ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--brand-primary)',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              textAlign: 'center',
-              padding: '0.5rem',
-            }}
-          >
-            Açaí Daiane
+          <div className="product-card-img-placeholder">
+            <span>Açaí</span>
           </div>
         )}
 
         {/* Badges de Destaque */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '0.45rem',
-            left: '0.45rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem',
-            zIndex: 2,
-          }}
-        >
-          {hasPromo && (
-            <span className="badge badge-danger" style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem' }}>
-              <Tag size={11} />
-              <span>Promoção</span>
-            </span>
-          )}
-          {product.is_bestseller && (
-            <span className="badge badge-warning" style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem' }}>
-              <Flame size={11} />
-              <span>Mais Vendido</span>
-            </span>
-          )}
-          {product.is_new && (
-            <span className="badge badge-brand" style={{ fontSize: '0.68rem', padding: '0.15rem 0.4rem' }}>
-              <Sparkles size={11} />
-              <span>Novidade</span>
-            </span>
-          )}
-        </div>
-
-        {/* Banner "Esgotado" diagonal no canto da imagem */}
-        {!product.is_available && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              width: '90px',
-              height: '90px',
-              overflow: 'hidden',
-              zIndex: 3,
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: '18px',
-                right: '-22px',
-                width: '110px',
-                backgroundColor: '#4c1d95',
-                color: '#ffffff',
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                textAlign: 'center',
-                padding: '5px 0',
-                transform: 'rotate(45deg)',
-                letterSpacing: '0.5px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-              }}
-            >
-              Esgotado
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Conteúdo do Card */}
-      <div className="product-card-body">
-        <div>
-          <h3 className="product-card-title">{name}</h3>
-          {description && <p className="product-card-desc">{description}</p>}
-        </div>
-
-        {/* Badges de Tamanhos */}
-        {hasSizes && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.4rem' }}>
-            {product.sizes!.map((size, idx) => (
-              <span
-                key={idx}
-                style={{
-                  display: 'inline-flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '0.2rem 0.5rem',
-                  backgroundColor: 'var(--bg-accent-subtle)',
-                  border: '1px solid var(--brand-primary)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.7rem',
-                  lineHeight: 1.3,
-                }}
-              >
-                <span style={{ fontWeight: 800, color: 'var(--brand-primary)' }}>{size.label}</span>
-                {size.volume && (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>{size.volume}</span>
-                )}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Preço e Botão */}
-        <div className="product-card-footer">
-          <div>
-            {hasPromo && formattedOldPrice && (
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  color: 'var(--text-muted)',
-                  textDecoration: 'line-through',
-                  display: 'block',
-                  lineHeight: 1,
-                  marginBottom: '2px',
-                }}
-              >
-                {formattedOldPrice}
+        {(hasPromo || product.is_bestseller || product.is_new) && (
+          <div className="product-card-badges">
+            {hasPromo && (
+              <span className="badge badge-danger" style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
+                <Tag size={10} />
+                <span>Promo</span>
               </span>
             )}
-            <span
-              style={{
-                fontSize: '1.1rem',
-                fontWeight: 800,
-                color: hasPromo ? 'var(--danger)' : 'var(--brand-primary)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {minSizePrice !== null && !hasPromo && <span style={{ fontSize: '0.7rem', fontWeight: 500, marginRight: '2px' }}>a partir de</span>}
-              {formattedPrice}
-            </span>
+            {product.is_bestseller && (
+              <span className="badge badge-warning" style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
+                <Flame size={10} />
+              </span>
+            )}
+            {product.is_new && (
+              <span className="badge badge-brand" style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
+                <Sparkles size={10} />
+              </span>
+            )}
           </div>
+        )}
 
-          <button
-            type="button"
-            disabled={!product.is_available}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClick();
-            }}
-            className="btn btn-primary btn-sm product-card-btn"
-            style={{
-              borderRadius: 'var(--radius-full)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}
-            aria-label={`Personalizar ${name}`}
-          >
-            <Plus size={15} />
-            <span>{t.menu.selectOptions}</span>
-          </button>
-        </div>
+        {/* Faixa diagonal de Esgotado */}
+        {!product.is_available && (
+          <div className="product-card-esgotado-ribbon">
+            <span>Esgotado</span>
+          </div>
+        )}
       </div>
     </div>
   );

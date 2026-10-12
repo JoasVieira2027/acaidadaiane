@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Flame, Tag, Sparkles, Clock, Bike, Zap, ChevronDown } from 'lucide-react';
+import Image from 'next/image';
+import {
+  Search,
+  ChevronDown,
+  MapPin,
+  ChevronRight,
+  X,
+} from 'lucide-react';
 import { Category, Product, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { useLanguage } from '@/context/LanguageContext';
 import { Header } from '@/components/ui/Header';
@@ -10,9 +17,14 @@ import { ProductCard } from '@/components/ui/ProductCard';
 import { ProductModal } from '@/components/ui/ProductModal';
 import { CartDrawer } from '@/components/ui/CartDrawer';
 import { CheckoutModal } from '@/components/ui/CheckoutModal';
-import { SeasonEffectLayer, getSeasonTitleClass, SeasonHeroBadge } from '@/components/ui/SeasonEffect';
+import { SeasonEffectLayer } from '@/components/ui/SeasonEffect';
 import { SeasonEffect } from '@/lib/types';
 import { PromoPopup } from '@/components/ui/PromoPopup';
+import { DeliveryFeeModal } from '@/components/ui/DeliveryFeeModal';
+import { StoreInfoModal } from '@/components/ui/StoreInfoModal';
+import { CouponModal } from '@/components/ui/CouponModal';
+import { MobileBottomNav } from '@/components/ui/MobileBottomNav';
+import { DesktopSidebarCart } from '@/components/ui/DesktopSidebarCart';
 
 export default function HomePage() {
   const { t, localize } = useLanguage();
@@ -26,14 +38,19 @@ export default function HomePage() {
   // Filtros
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [activeHighlight, setActiveHighlight] = useState<'all' | 'promo' | 'bestseller' | 'new'>('all');
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Modal de produto
+  // Modais
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [isStoreInfoModalOpen, setIsStoreInfoModalOpen] = useState(false);
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
+  const [mobileNavTab, setMobileNavTab] = useState<'home' | 'promo' | 'orders' | 'profile'>('home');
 
-  // Função de busca de dados reutilizável
+  // Busca de dados
   const fetchData = React.useCallback((isInitial = false) => {
     const productsReq = fetch('/api/products', { cache: 'no-store' })
       .then((res) => res.json())
@@ -79,10 +96,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    // Carga inicial
     fetchData(true);
-
-    // Atualiza status da loja a cada 30 segundos (aberto/fechado)
     const statusInterval = setInterval(() => {
       fetch('/api/store-status', { cache: 'no-store' })
         .then((res) => res.json())
@@ -95,7 +109,6 @@ export default function HomePage() {
         .catch(() => {});
     }, 30_000);
 
-    // Atualiza produtos/cardápio a cada 2 minutos
     const productsInterval = setInterval(() => fetchData(false), 120_000);
 
     return () => {
@@ -117,12 +130,9 @@ export default function HomePage() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      // Filtro de categoria
       if (selectedCategory !== 'all' && p.category_id !== selectedCategory) {
         return false;
       }
-
-      // Filtro de destaque
       if (activeHighlight === 'promo' && (!p.is_promo_active || !p.promotional_price)) {
         return false;
       }
@@ -132,214 +142,195 @@ export default function HomePage() {
       if (activeHighlight === 'new' && !p.is_new) {
         return false;
       }
-
-      // Filtro de busca textual
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const name = (p.name || '').toLowerCase();
         const desc = (p.description || '').toLowerCase();
         return name.includes(query) || desc.includes(query);
       }
-
       return true;
     }).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }, [products, selectedCategory, activeHighlight, searchQuery]);
 
   const seasonEffect = (settings?.season_effect || 'none') as SeasonEffect;
+  const storeName = settings?.store_name || "D'PALETEIROS";
+  const bannerImage = settings?.banner_url || '/banner.jpg';
+  const logoImage = settings?.logo_url || '/logo.png';
+  const isOpen = storeStatus ? storeStatus.isOpen : true;
+
+  // Localização / Cidade (extraída de address_text ou padrão Recife - PE)
+  const locationText = useMemo(() => {
+    if (!settings?.address_text) return 'Recife - PE';
+    const parts = settings.address_text.split(',');
+    if (parts.length > 1) {
+      return parts[parts.length - 1].trim();
+    }
+    return settings.address_text;
+  }, [settings?.address_text]);
+
+  const statusText = useMemo(() => {
+    if (!isOpen) {
+      return storeStatus?.nextOpenTime
+        ? `Fechado • Abrimos às ${storeStatus.nextOpenTime}`
+        : 'Fechado • Abrimos às 12h30';
+    }
+    return 'Aberto • Fechamos às 23h00';
+  }, [isOpen, storeStatus?.nextOpenTime]);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
       {seasonEffect !== 'none' && <SeasonEffectLayer effect={seasonEffect} />}
+
+      {/* Header Superior Limpo */}
       <Header />
 
-      <main className="main-content">
+      {/* ── BANNER DE COBERTURA (AÇAÍ BOWL) ── */}
+      <div className="store-cover-banner">
+        <Image
+          src={bannerImage}
+          alt={storeName}
+          fill
+          priority
+          className="store-cover-img"
+          sizes="100vw"
+        />
+      </div>
 
-        {/* Hero Section compacto e profissional */}
-        <section
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            borderBottom: '1px solid var(--border-color)',
-            padding: '1.75rem 0 1.5rem',
-            textAlign: 'center',
-          }}
-        >
-          <div className="container" style={{ maxWidth: '720px' }}>
-            {seasonEffect !== 'none' && <SeasonHeroBadge effect={seasonEffect} />}
-            <h1
-              className={`hero-title ${getSeasonTitleClass(seasonEffect)}`}
-              style={{
-                fontSize: '2rem',
-                fontWeight: 900,
-                letterSpacing: '-0.8px',
-                color: 'var(--text-primary)',
-                marginBottom: '0.35rem',
-                lineHeight: 1.2,
-              }}
-            >
-              {settings?.store_name || 'Açaí da Daiane'}
-            </h1>
+      <main className="main-content" style={{ flex: 1, paddingBottom: '3rem' }}>
+        <div className="container" style={{ maxWidth: '1160px' }}>
 
-            {/* Linha de info discreta */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '0.5rem',
-                marginBottom: '1.25rem',
-                fontSize: '0.82rem',
-                color: 'var(--text-muted)',
-              }}
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Bike size={13} />
-                {settings?.allow_delivery !== false && settings?.allow_pickup !== false
-                  ? 'Delivery & Retirada'
-                  : settings?.allow_delivery !== false
-                  ? 'Apenas Delivery'
-                  : 'Apenas Retirada'}
-              </span>
-              <span style={{ opacity: 0.4 }}>•</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Clock size={13} />
-                30 a 50 min
-              </span>
-              <span style={{ opacity: 0.4 }}>•</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                <Zap size={13} style={{ color: 'var(--brand-primary)' }} />
-                Pix & Cartão
-              </span>
-              {storeStatus && !storeStatus.isOpen && storeStatus.nextOpenTime && (
-                <>
-                  <span style={{ opacity: 0.4 }}>•</span>
-                  <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
-                    Abre às {storeStatus.nextOpenTime}
-                  </span>
-                </>
-              )}
+          {/* ── 1. HEADER DO PERFIL NO MOBILE (IPHONE - IMAGEM 1) ── */}
+          <div className="mobile-only" style={{ display: 'none' }}>
+            {/* Controlado por CSS abaixo */}
+          </div>
+          <div className="store-profile-mobile">
+            {/* Logo Circular sobrepondo o banner */}
+            <div className="store-logo-circle">
+              <img
+                src={logoImage}
+                alt={storeName}
+                style={{ width: '85%', height: '85%', objectFit: 'contain' }}
+              />
             </div>
 
-            {/* Barra de Busca */}
-            <div style={{ position: 'relative', maxWidth: '480px', margin: '0 auto' }}>
-              <Search
-                size={18}
+            {/* Nome da Loja */}
+            <h1 className="store-title-mobile">{storeName}</h1>
+
+            {/* Localização e Mais Informações */}
+            <div className="store-info-line-mobile">
+              <MapPin size={14} style={{ color: 'var(--text-muted)' }} />
+              <span>{locationText}</span>
+              <span style={{ opacity: 0.4 }}>•</span>
+              <button
+                type="button"
+                onClick={() => setIsStoreInfoModalOpen(true)}
                 style={{
-                  position: 'absolute',
-                  left: '1rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
                   color: 'var(--text-muted)',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline',
                 }}
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t.common.search}
-                className="form-input"
-                style={{
-                  paddingLeft: '2.75rem',
-                  borderRadius: 'var(--radius-full)',
-                  height: '46px',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              />
+              >
+                Mais informações
+              </button>
+            </div>
+
+            {/* Status (Aberto/Fechado) */}
+            <div
+              className="store-status-line-mobile"
+              style={{ color: isOpen ? 'var(--success)' : 'var(--danger)' }}
+            >
+              {statusText}
+            </div>
+
+            {/* Card: Calcular taxa e tempo de entrega (Mobile) */}
+            <div
+              onClick={() => setIsDeliveryModalOpen(true)}
+              className="delivery-calc-card"
+              style={{ width: '100%' }}
+              role="button"
+              tabIndex={0}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <MapPin size={18} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Calcular taxa e tempo de entrega
+                </span>
+              </div>
+              <ChevronRight size={18} style={{ color: 'var(--brand-primary)' }} />
             </div>
           </div>
-        </section>
 
-        {/* Filtros de Categorias e Destaques */}
-        <section style={{ padding: '1.5rem 0', backgroundColor: 'var(--bg-primary)' }}>
-          <div className="container">
-            {/* Abas de Destaques Rápidos */}
-            <div
-              className="filters-scroll"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                overflowX: 'auto',
-                paddingBottom: '0.75rem',
-                marginBottom: '1rem',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setActiveHighlight('all')}
-                className={`btn btn-sm ${activeHighlight === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ borderRadius: 'var(--radius-full)' }}
-              >
-                {t.common.allCategories}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveHighlight('promo')}
-                className={`btn btn-sm ${activeHighlight === 'promo' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ borderRadius: 'var(--radius-full)' }}
-              >
-                <Tag size={14} />
-                <span>{t.menu.promotions}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveHighlight('bestseller')}
-                className={`btn btn-sm ${activeHighlight === 'bestseller' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ borderRadius: 'var(--radius-full)' }}
-              >
-                <Flame size={14} />
-                <span>{t.menu.bestsellers}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveHighlight('new')}
-                className={`btn btn-sm ${activeHighlight === 'new' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ borderRadius: 'var(--radius-full)' }}
-              >
-                <Sparkles size={14} />
-                <span>{t.menu.newItems}</span>
-              </button>
+          {/* ── 2. HEADER DO PERFIL NO DESKTOP (IMAGEM 2) ── */}
+          <div className="store-profile-desktop">
+            {/* Logo Quadrado arredondado sobrepondo o banner */}
+            <div className="store-logo-square">
+              <img
+                src={logoImage}
+                alt={storeName}
+                style={{ width: '85%', height: '85%', objectFit: 'contain' }}
+              />
             </div>
 
+            {/* Nome e Linha de Informações */}
+            <div>
+              <h1 className="store-title-desktop">{storeName}</h1>
+              <div className="store-info-row-desktop">
+                <span style={{ color: isOpen ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
+                  {statusText}
+                </span>
+                <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>•</span>
+                <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <MapPin size={14} />
+                  {locationText}
+                </span>
+                <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>•</span>
+                <button
+                  type="button"
+                  onClick={() => setIsStoreInfoModalOpen(true)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Mais informações
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 3. BARRA DE FILTRO DE CATEGORIAS E BUSCA ── */}
+          <div className="filter-search-row">
             {/* Dropdown de Categorias */}
-            <div ref={categoryDropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+            <div ref={categoryDropdownRef} style={{ position: 'relative' }}>
               <button
                 type="button"
                 onClick={() => setCategoryDropdownOpen((prev) => !prev)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '0.9rem',
-                  fontWeight: 500,
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'border-color 0.15s ease',
-                  minWidth: '200px',
-                  justifyContent: 'space-between',
-                }}
+                className="category-dropdown-btn"
+                aria-label="Selecionar categoria"
               >
                 <span>
                   {selectedCategory === 'all'
                     ? 'Lista de categorias'
                     : categories.find((c) => c.id === selectedCategory)
-                      ? localize(categories.find((c) => c.id === selectedCategory)!, 'name')
-                      : 'Lista de categorias'}
+                    ? localize(categories.find((c) => c.id === selectedCategory)!, 'name')
+                    : 'Lista de categorias'}
                 </span>
                 <ChevronDown
                   size={16}
                   style={{
                     transition: 'transform 0.2s ease',
                     transform: categoryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    flexShrink: 0,
                   }}
                 />
               </button>
@@ -353,7 +344,7 @@ export default function HomePage() {
                     zIndex: 200,
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: '10px',
                     boxShadow: 'var(--shadow-lg)',
                     minWidth: '220px',
                     maxHeight: '320px',
@@ -363,22 +354,22 @@ export default function HomePage() {
                 >
                   <button
                     type="button"
-                    onClick={() => { setSelectedCategory('all'); setCategoryDropdownOpen(false); }}
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setCategoryDropdownOpen(false);
+                    }}
                     style={{
                       display: 'block',
                       width: '100%',
                       textAlign: 'left',
                       padding: '0.65rem 1rem',
                       fontSize: '0.875rem',
-                      fontWeight: selectedCategory === 'all' ? 600 : 400,
+                      fontWeight: selectedCategory === 'all' ? 700 : 400,
                       color: selectedCategory === 'all' ? 'var(--brand-primary)' : 'var(--text-primary)',
                       backgroundColor: selectedCategory === 'all' ? 'var(--bg-accent-subtle)' : 'transparent',
                       border: 'none',
                       cursor: 'pointer',
-                      transition: 'background-color 0.1s ease',
                     }}
-                    onMouseEnter={(e) => { if (selectedCategory !== 'all') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--bg-tertiary)'; }}
-                    onMouseLeave={(e) => { if (selectedCategory !== 'all') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
                   >
                     Todas as Categorias
                   </button>
@@ -387,22 +378,22 @@ export default function HomePage() {
                     <button
                       type="button"
                       key={cat.id}
-                      onClick={() => { setSelectedCategory(cat.id); setCategoryDropdownOpen(false); }}
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setCategoryDropdownOpen(false);
+                      }}
                       style={{
                         display: 'block',
                         width: '100%',
                         textAlign: 'left',
                         padding: '0.65rem 1rem',
                         fontSize: '0.875rem',
-                        fontWeight: selectedCategory === cat.id ? 600 : 400,
+                        fontWeight: selectedCategory === cat.id ? 700 : 400,
                         color: selectedCategory === cat.id ? 'var(--brand-primary)' : 'var(--text-primary)',
                         backgroundColor: selectedCategory === cat.id ? 'var(--bg-accent-subtle)' : 'transparent',
                         border: 'none',
                         cursor: 'pointer',
-                        transition: 'background-color 0.1s ease',
                       }}
-                      onMouseEnter={(e) => { if (selectedCategory !== cat.id) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--bg-tertiary)'; }}
-                      onMouseLeave={(e) => { if (selectedCategory !== cat.id) (e.currentTarget as HTMLButtonElement).style.backgroundColor = selectedCategory === cat.id ? 'var(--bg-accent-subtle)' : 'transparent'; }}
                     >
                       {localize(cat, 'name')}
                     </button>
@@ -410,96 +401,176 @@ export default function HomePage() {
                 </div>
               )}
             </div>
-          </div>
-        </section>
 
-        {/* Grade de Produtos */}
-        <section style={{ padding: '1rem 0 3rem 0' }}>
-          <div className="container">
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)' }}>
-                {t.common.loading}
-              </div>
-            ) : filteredProducts.length === 0 ? (
+            {/* Busca: Campo no Desktop, Botão quadrado que expande no Mobile */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              {/* No Desktop: input visível sempre */}
               <div
-                style={{
-                  textAlign: 'center',
-                  padding: '4rem 1rem',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px solid var(--border-color)',
-                }}
+                className="desktop-search-input-wrap"
+                style={{ position: 'relative', width: '100%', maxWidth: '380px' }}
               >
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-                  Nenhum produto encontrado
-                </h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  Tente alterar os filtros de busca ou escolher outra categoria.
-                </p>
+                <Search
+                  size={17}
+                  style={{
+                    position: 'absolute',
+                    left: '0.9rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                  }}
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Busque por um produto"
+                  className="form-input search-input-pill"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '0.75rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
-            ) : selectedCategory === 'all' && !searchQuery.trim() && activeHighlight === 'all' ? (
-              // Agrupamento por Categoria com Títulos Elegantes (ex: AÇAÍ E CREMES, SORVETES)
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                {categories.map((cat) => {
-                  const catProducts = products
-                    .filter((p) => p.category_id === cat.id && p.is_available !== false)
-                    .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
-                  if (catProducts.length === 0) return null;
+              {/* No Mobile: botão quadrado de lupa */}
+              <button
+                type="button"
+                onClick={() => setMobileSearchOpen((prev) => !prev)}
+                className="search-square-btn mobile-search-btn"
+                aria-label="Buscar produtos"
+              >
+                <Search size={18} />
+              </button>
+            </div>
+          </div>
 
-                  return (
-                    <div key={cat.id} id={`cat-${cat.id}`}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          marginBottom: '1.25rem',
-                        }}
-                      >
-                        <h2
-                          style={{
-                            fontSize: '1.25rem',
-                            fontWeight: 900,
-                            letterSpacing: '-0.3px',
-                            color: 'var(--text-primary)',
-                            textTransform: 'uppercase',
-                            margin: 0,
-                          }}
-                        >
+          {/* Campo de Busca Expandido no Mobile */}
+          {mobileSearchOpen && (
+            <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+              <Search
+                size={16}
+                style={{
+                  position: 'absolute',
+                  left: '0.85rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                }}
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Busque por um produto..."
+                className="form-input"
+                style={{
+                  paddingLeft: '2.4rem',
+                  height: '42px',
+                  borderRadius: '10px',
+                }}
+                autoFocus
+              />
+            </div>
+          )}
+
+          {/* ── 4. LAYOUT PRINCIPAL: 2 COLUNAS NO DESKTOP (IMAGEM 2) ── */}
+          <div className="desktop-main-layout">
+            
+            {/* Coluna Esquerda: Catálogo de Produtos */}
+            <div className="desktop-catalog-col">
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)' }}>
+                  {t.common.loading}
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '4rem 1rem',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                    Nenhum produto encontrado
+                  </h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                    Tente buscar por outro termo ou escolha outra categoria.
+                  </p>
+                </div>
+              ) : selectedCategory === 'all' && !searchQuery.trim() && activeHighlight === 'all' ? (
+                // Seções organizadas por Categoria (ex: ESPECIAL PARA CRIANÇAS :), AÇAÍ E CREMES)
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  {categories.map((cat) => {
+                    const catProducts = products
+                      .filter((p) => p.category_id === cat.id && p.is_available !== false)
+                      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+                    if (catProducts.length === 0) return null;
+
+                    return (
+                      <div key={cat.id} id={`cat-${cat.id}`}>
+                        <h2 className="category-section-title">
                           {localize(cat, 'name')}
                         </h2>
-                        <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)', opacity: 0.6 }} />
+                        <div className="products-grid">
+                          {catProducts.map((product) => (
+                            <ProductCard
+                              key={product.id}
+                              product={product}
+                              onSelect={(p) => setSelectedProduct(p)}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <div className="products-grid">
-                        {catProducts.map((product) => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            onSelect={(p) => setSelectedProduct(p)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="products-grid">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onSelect={(p) => setSelectedProduct(p)}
-                  />
-                ))}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="products-grid">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onSelect={(p) => setSelectedProduct(p)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Coluna Direita: Sidebar da Sacola (Desktop - Imagem 2) */}
+            <div className="desktop-sidebar-col">
+              <DesktopSidebarCart
+                storeStatus={storeStatus}
+                settings={settings}
+                onOpenDeliveryFee={() => setIsDeliveryModalOpen(true)}
+                onOpenCoupon={() => setIsCouponModalOpen(true)}
+                onOpenStoreInfo={() => setIsStoreInfoModalOpen(true)}
+              />
+            </div>
+
           </div>
-        </section>
+
+        </div>
       </main>
 
-      {/* Modais e Gaveta do Carrinho */}
+      {/* Modais do Sistema */}
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
@@ -507,6 +578,27 @@ export default function HomePage() {
         />
       )}
 
+      {/* Modal de Taxa e Tempo de Entrega */}
+      <DeliveryFeeModal
+        isOpen={isDeliveryModalOpen}
+        onClose={() => setIsDeliveryModalOpen(false)}
+      />
+
+      {/* Modal de Informações da Loja */}
+      <StoreInfoModal
+        isOpen={isStoreInfoModalOpen}
+        onClose={() => setIsStoreInfoModalOpen(false)}
+        settings={settings}
+        storeStatus={storeStatus}
+      />
+
+      {/* Modal de Cupom de Desconto */}
+      <CouponModal
+        isOpen={isCouponModalOpen}
+        onClose={() => setIsCouponModalOpen(false)}
+      />
+
+      {/* Gaveta do Carrinho (usada no mobile e para detalhes) */}
       <CartDrawer />
       <CheckoutModal />
 
@@ -514,6 +606,26 @@ export default function HomePage() {
       <PromoPopup
         products={products}
         onSelectProduct={(p) => setSelectedProduct(p)}
+      />
+
+      {/* ── BARRA DE NAVEGAÇÃO INFERIOR MOBILE (IPHONE - IMAGEM 1) ── */}
+      <MobileBottomNav
+        activeTab={mobileNavTab}
+        onGoHome={() => {
+          setMobileNavTab('home');
+          setSelectedCategory('all');
+          setActiveHighlight('all');
+          setSearchQuery('');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenPromo={() => {
+          setMobileNavTab('promo');
+          setActiveHighlight('promo');
+        }}
+        onOpenProfile={() => {
+          setMobileNavTab('profile');
+          setIsStoreInfoModalOpen(true);
+        }}
       />
 
       <Footer />
