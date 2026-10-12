@@ -172,6 +172,160 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* Imagens da Marca: Logo e Banner de Capa */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+            Imagens da Marca (Logo &amp; Banner do Topo)
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+            Altere a logo e a foto grande de capa do topo do site exibidas no computador e no celular.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            
+            {/* 1. Logo do Estabelecimento */}
+            <div style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-primary)' }}>
+              <label className="form-label" style={{ fontWeight: 800, marginBottom: '0.5rem' }}>
+                Logo do Estabelecimento
+              </label>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.85rem' }}>
+                <div
+                  style={{
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '12px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    boxShadow: 'var(--shadow-sm)',
+                  }}
+                >
+                  <img
+                    src={settings.logo_url || '/logo.png'}
+                    alt="Logo preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <label
+                    className="btn btn-secondary btn-sm"
+                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.35rem' }}
+                  >
+                    <span>Carregar Imagem</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      style={{ display: 'none' }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        try {
+                          const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd });
+                          const data = await res.json();
+                          if (data.success && data.imageUrl) {
+                            setSettings((prev) => ({ ...prev, logo_url: data.imageUrl }));
+                          }
+                        } catch {}
+                      }}
+                    />
+                  </label>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    PNG, JPG ou WEBP (quadrado recomendado)
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.78rem' }}>Ou cole o link direto da Logo:</label>
+                <input
+                  type="url"
+                  value={settings.logo_url || ''}
+                  onChange={(e) => setSettings({ ...settings, logo_url: e.target.value })}
+                  className="form-input"
+                  placeholder="https://exemplo.com/logo.png"
+                  style={{ fontSize: '0.82rem', height: '36px' }}
+                />
+              </div>
+            </div>
+
+            {/* 2. Banner de Capa */}
+            <div style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-primary)' }}>
+              <label className="form-label" style={{ fontWeight: 800, marginBottom: '0.5rem' }}>
+                Foto Grande do Topo (Banner de Capa)
+              </label>
+
+              <div
+                style={{
+                  width: '100%',
+                  height: '84px',
+                  borderRadius: '8px',
+                  backgroundColor: '#2e0854',
+                  overflow: 'hidden',
+                  marginBottom: '0.85rem',
+                  position: 'relative',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <img
+                  src={settings.banner_url || '/banner.jpg'}
+                  alt="Banner preview"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
+                <label
+                  className="btn btn-secondary btn-sm"
+                  style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <span>Carregar Imagem de Capa</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      try {
+                        const res = await fetch('/api/products/upload-image', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (data.success && data.imageUrl) {
+                          setSettings((prev) => ({ ...prev, banner_url: data.imageUrl }));
+                        }
+                      } catch {}
+                    }}
+                  />
+                </label>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Recomendado 1200x400 ou 16:9
+                </span>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.78rem' }}>Ou cole o link direto do Banner:</label>
+                <input
+                  type="url"
+                  value={settings.banner_url || ''}
+                  onChange={(e) => setSettings({ ...settings, banner_url: e.target.value })}
+                  className="form-input"
+                  placeholder="https://exemplo.com/banner.jpg"
+                  style={{ fontSize: '0.82rem', height: '36px' }}
+                />
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         {/* Formas de Pagamento Habilitadas */}
         <div className="card" style={{ padding: '1.5rem' }}>
           <h2 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '0.5rem' }}>

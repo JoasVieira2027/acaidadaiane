@@ -20,7 +20,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const hasPromo = product.is_promo_active && product.promotional_price;
   const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
 
-  // Se tem tamanhos, o menor tamanho com preço > 0
+  // Menor tamanho com preço > 0
   const sizesWithPrice = hasSizes ? product.sizes!.filter((s) => Number(s.price) > 0) : [];
   const minSizePrice = sizesWithPrice.length > 0
     ? Math.min(...sizesWithPrice.map((s) => Number(s.price)))
@@ -63,9 +63,73 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
       }}
       aria-label={`Selecionar ${name}`}
     >
-      {/* Corpo do card (Lado Esquerdo: Título, Descrição, Preço) */}
+      {/* Corpo do card (Lado Esquerdo: Badges, Título, Descrição, Preço) */}
       <div className="product-card-body">
         <div style={{ minWidth: 0 }}>
+          
+          {/* Badges de Destaque Limpos e Organizados */}
+          {(hasPromo || product.is_bestseller || product.is_new) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.4rem' }}>
+              {hasPromo && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    color: '#dc2626',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                  }}
+                >
+                  <Tag size={11} />
+                  <span>Promoção</span>
+                </span>
+              )}
+              {product.is_bestseller && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                    color: '#d97706',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                  }}
+                >
+                  <Flame size={11} />
+                  <span>Mais Vendido</span>
+                </span>
+              )}
+              {product.is_new && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+                    color: '#7c3aed',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(124, 58, 237, 0.25)',
+                  }}
+                >
+                  <Sparkles size={11} />
+                  <span>Novidade</span>
+                </span>
+              )}
+            </div>
+          )}
+
           <h3 className="product-card-title">{name}</h3>
           {description && <p className="product-card-desc">{description}</p>}
         </div>
@@ -86,7 +150,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Imagem do Produto (Lado Direito: Thumbnail com cantos arredondados) */}
+      {/* Imagem do Produto (Lado Direito: Foto limpa com cantos arredondados) */}
       <div className="product-card-img-wrap">
         {product.image_url ? (
           <Image
@@ -104,29 +168,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
           </div>
         )}
 
-        {/* Badges de Destaque */}
-        {(hasPromo || product.is_bestseller || product.is_new) && (
-          <div className="product-card-badges">
-            {hasPromo && (
-              <span className="badge badge-danger" style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
-                <Tag size={10} />
-                <span>Promo</span>
-              </span>
-            )}
-            {product.is_bestseller && (
-              <span className="badge badge-warning" style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
-                <Flame size={10} />
-              </span>
-            )}
-            {product.is_new && (
-              <span className="badge badge-brand" style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
-                <Sparkles size={10} />
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Faixa diagonal de Esgotado */}
+        {/* Faixa de Esgotado quando indisponível */}
         {!product.is_available && (
           <div className="product-card-esgotado-ribbon">
             <span>Esgotado</span>
