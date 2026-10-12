@@ -67,8 +67,29 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
       <div className="product-card-body">
         <div style={{ minWidth: 0 }}>
           
-          {/* Badges de Destaque Limpos e Organizados */}
-          {(hasPromo || product.is_bestseller || product.is_new) && (
+          {/* Badge de Esgotado ou Destaques */}
+          {!product.is_available ? (
+            <div style={{ marginBottom: '0.4rem' }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  backgroundColor: '#fee2e2',
+                  color: '#b91c1c',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid #f87171',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.3px',
+                }}
+              >
+                Esgotado
+              </span>
+            </div>
+          ) : (hasPromo || product.is_bestseller || product.is_new) && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.4rem' }}>
               {hasPromo && (
                 <span

@@ -520,7 +520,7 @@ export default function HomePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                   {categories.map((cat) => {
                     const catProducts = products
-                      .filter((p) => p.category_id === cat.id && p.is_available !== false)
+                      .filter((p) => p.category_id === cat.id)
                       .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
                     if (catProducts.length === 0) return null;
