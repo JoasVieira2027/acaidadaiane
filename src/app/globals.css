@@ -691,10 +691,10 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 .products-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
-/* ── Card de Produto Base (Mobile) ── */
+/* ── Card de Produto Base (Mobile - Ampliado) ── */
 .product-card {
   display: flex;
   flex-direction: row;
@@ -702,19 +702,19 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   justify-content: space-between;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
-  padding: 1.05rem 1rem;
-  gap: 0.95rem;
+  border-radius: 16px;
+  padding: 1.25rem 1.15rem;
+  gap: 1.1rem;
   position: relative;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  min-height: 132px;
+  min-height: 152px;
 }
 
 .product-card:hover {
   border-color: var(--brand-primary);
-  box-shadow: 0 6px 20px rgba(88, 28, 135, 0.14);
+  box-shadow: 0 8px 24px rgba(88, 28, 135, 0.16);
   transform: translateY(-2px);
 }
 
@@ -728,18 +728,18 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   filter: grayscale(25%);
 }
 
-/* ── iPad e Desktop: Cards Confortavelmente Maiores ── */
+/* ── iPad e Desktop: Cards Ainda Maiores e Mais Visíveis ── */
 @media (min-width: 640px) {
   .products-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.2rem;
+    gap: 1.35rem;
   }
 
   .product-card {
-    min-height: 156px;
-    padding: 1.35rem 1.45rem;
-    gap: 1.25rem;
-    border-radius: 16px;
+    min-height: 178px;
+    padding: 1.5rem 1.6rem;
+    gap: 1.35rem;
+    border-radius: 18px;
   }
 }
 
@@ -753,18 +753,18 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 }
 
 .product-card-title {
-  font-size: 1.02rem;
+  font-size: 1.12rem;
   font-weight: 800;
   color: var(--text-primary);
   line-height: 1.25;
-  margin: 0 0 0.3rem 0;
+  margin: 0 0 0.35rem 0;
   letter-spacing: -0.2px;
 }
 
 .product-card-desc {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--text-muted);
-  line-height: 1.38;
+  line-height: 1.42;
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -773,13 +773,13 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 }
 
 .product-card-price-wrap {
-  margin-top: 0.5rem;
+  margin-top: 0.65rem;
   display: flex;
   flex-direction: column;
 }
 
 .product-card-old-price {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   text-decoration: line-through;
   line-height: 1;
@@ -787,29 +787,29 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 }
 
 .product-card-price {
-  font-size: 1.06rem;
-  font-weight: 700;
+  font-size: 1.20rem;
+  font-weight: 800;
   color: var(--text-primary);
 }
 
 .product-card-price.promo-price {
   color: var(--danger);
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .product-card-from-text {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: var(--text-muted);
 }
 
 /* ── Lado Direito: Imagem quadrada com cantos arredondados ── */
 .product-card-img-wrap {
-  width: 106px;
-  height: 106px;
+  width: 122px;
+  height: 122px;
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   background-color: var(--bg-tertiary);
   flex-shrink: 0;
   align-self: center;
@@ -817,34 +817,34 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
 
 @media (min-width: 640px) {
   .product-card-img-wrap {
-    width: 134px;
-    height: 134px;
-    border-radius: 14px;
+    width: 152px;
+    height: 152px;
+    border-radius: 16px;
   }
 
   .product-card-title {
-    font-size: 1.18rem;
+    font-size: 1.30rem;
   }
 
   .product-card-desc {
-    font-size: 0.88rem;
-    line-height: 1.45;
+    font-size: 0.94rem;
+    line-height: 1.5;
   }
 
   .product-card-price {
-    font-size: 1.22rem;
+    font-size: 1.38rem;
   }
 }
 
 .product-card-img {
   object-fit: cover !important;
-  border-radius: 12px;
+  border-radius: 14px;
   transition: transform 0.3s ease;
 }
 
 @media (min-width: 640px) {
   .product-card-img {
-    border-radius: 14px;
+    border-radius: 16px;
   }
 }
 
@@ -1564,35 +1564,6 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   padding: 3.5rem 1rem;
 }
 
-/* ── Botão de Atalho Rápido de Frete no Mobile ── */
-.frete-quick-mobile-btn {
-  display: none;
-}
-
-@media (max-width: 767px) {
-  .frete-quick-mobile-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    height: 42px;
-    padding: 0 0.8rem;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: all 0.15s ease;
-    flex-shrink: 0;
-  }
-
-  .frete-quick-mobile-btn:active {
-    transform: scale(0.97);
-    border-color: var(--brand-primary);
-  }
-}
 
 /* ── Barra de Navegação Inferior Mobile (iPhone - Imagem 1) ── */
 .mobile-bottom-nav {

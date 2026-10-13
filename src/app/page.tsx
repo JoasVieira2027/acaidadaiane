@@ -466,21 +466,6 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* No Mobile: botão de consulta rápida de taxa e frete */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileNavTab('frete');
-                  setIsDeliveryModalOpen(true);
-                }}
-                className="frete-quick-mobile-btn"
-                aria-label="Calcular taxa e frete"
-                title="Calcular Frete"
-              >
-                <MapPin size={16} style={{ color: 'var(--brand-primary)' }} />
-                <span>Frete</span>
-              </button>
-
               {/* No Mobile: botão quadrado de lupa */}
               <button
                 type="button"
