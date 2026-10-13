@@ -95,12 +95,14 @@ export default function AdminHoursPage() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', width: '100%' }}>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Horários e Funcionamento da Loja</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          Gerencie os horários por dia da semana no fuso de Recife e ative aberturas ou fechamentos manuais de emergência.
-        </p>
+    <div className="admin-page-container">
+      <div className="admin-header-row">
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Horários e Funcionamento da Loja</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Gerencie os horários por dia da semana no fuso de Recife e ative aberturas ou fechamentos manuais de emergência.
+          </p>
+        </div>
       </div>
 
       {savedFeedback && (
@@ -269,7 +271,7 @@ export default function AdminHoursPage() {
           <h2 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '1rem' }}>
             Mensagens de Aviso aos Clientes
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="admin-two-cols">
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Mensagem quando Aberto</label>
               <textarea
@@ -292,7 +294,7 @@ export default function AdminHoursPage() {
         </div>
 
         {/* Grade de Dias da Semana */}
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '1.25rem' }}>
           <h2 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '0.5rem' }}>
             Programação Semanal de Funcionamento
           </h2>
@@ -304,51 +306,50 @@ export default function AdminHoursPage() {
             {hours.map((h, index) => (
               <div
                 key={h.id || index}
+                className="admin-schedule-row"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-color)',
-                  opacity: h.is_closed ? 0.6 : 1,
+                  opacity: h.is_closed ? 0.65 : 1,
                 }}
               >
-                <div style={{ minWidth: '140px', fontWeight: 700, fontSize: '0.95rem' }}>
-                  {weekdays[h.day_of_week]}
-                </div>
+                {/* Linha Superior: Dia e Checkbox */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    {weekdays[h.day_of_week]}
+                  </span>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', cursor: 'pointer', flexShrink: 0 }}>
                     <input
                       type="checkbox"
                       checked={h.is_closed}
                       onChange={(e) => handleUpdateHour(index, 'is_closed', e.target.checked)}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                     />
-                    <span>Fechado o dia todo</span>
+                    <span style={{ color: h.is_closed ? 'var(--danger)' : 'var(--text-secondary)', fontWeight: h.is_closed ? 700 : 500 }}>
+                      Fechado o dia todo
+                    </span>
                   </label>
-
-                  {!h.is_closed && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <input
-                        type="time"
-                        value={h.open_time}
-                        onChange={(e) => handleUpdateHour(index, 'open_time', e.target.value)}
-                        className="form-input"
-                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.85rem' }}
-                      />
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>até</span>
-                      <input
-                        type="time"
-                        value={h.close_time}
-                        onChange={(e) => handleUpdateHour(index, 'close_time', e.target.value)}
-                        className="form-input"
-                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.85rem' }}
-                      />
-                    </div>
-                  )}
                 </div>
+
+                {/* Se Aberto: Horários com largura adaptável */}
+                {!h.is_closed && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-start' }}>
+                    <input
+                      type="time"
+                      value={h.open_time}
+                      onChange={(e) => handleUpdateHour(index, 'open_time', e.target.value)}
+                      className="form-input"
+                      style={{ padding: '0.45rem 0.65rem', fontSize: '0.88rem', flex: 1, maxWidth: '140px' }}
+                    />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}>até</span>
+                    <input
+                      type="time"
+                      value={h.close_time}
+                      onChange={(e) => handleUpdateHour(index, 'close_time', e.target.value)}
+                      className="form-input"
+                      style={{ padding: '0.45rem 0.65rem', fontSize: '0.88rem', flex: 1, maxWidth: '140px' }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>

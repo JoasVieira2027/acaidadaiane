@@ -617,6 +617,83 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   }
 }
 
+/* ── Utilitários Responsivos do Painel Administrativo ── */
+.admin-page-container {
+  padding: 1rem 0.85rem;
+  width: 100%;
+  max-width: 1100px;
+}
+
+@media (min-width: 769px) {
+  .admin-page-container {
+    padding: 2rem;
+  }
+}
+
+.admin-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .admin-header-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.admin-desktop-table {
+  display: none;
+}
+
+.admin-mobile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+@media (min-width: 769px) {
+  .admin-desktop-table {
+    display: block;
+  }
+  .admin-mobile-cards {
+    display: none;
+  }
+}
+
+.admin-schedule-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+@media (min-width: 640px) {
+  .admin-schedule-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.admin-two-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 769px) {
+  .admin-two-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* ≤640px: checkout grids viram coluna única */
 @media (max-width: 640px) {
   .checkout-grid-2,

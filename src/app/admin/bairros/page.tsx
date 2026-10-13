@@ -120,8 +120,8 @@ export default function AdminNeighborhoodsPage() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+    <div className="admin-page-container">
+      <div className="admin-header-row">
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Bairros e Taxas de Entrega</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -135,79 +135,156 @@ export default function AdminNeighborhoodsPage() {
             setIsModalOpen(true);
           }}
           className="btn btn-primary"
+          style={{ flexShrink: 0 }}
         >
           <Plus size={18} />
           <span>Novo Bairro</span>
         </button>
       </div>
 
-      <div className="card" style={{ overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-              <th style={{ padding: '0.85rem 1rem' }}>Bairro</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Taxa de Entrega</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Pedido Mínimo</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Frete Grátis Acima de</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Status</th>
-              <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {neighborhoods.map((n) => (
-              <tr key={n.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={{ padding: '1rem', fontWeight: 700 }}>{n.name}</td>
-                <td style={{ padding: '1rem', fontWeight: 700, color: 'var(--brand-primary)' }}>
-                  R$ {n.delivery_fee.toFixed(2)}
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  {n.min_order_amount > 0 ? `R$ ${n.min_order_amount.toFixed(2)}` : 'Sem mínimo'}
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  {n.free_delivery_threshold ? (
-                    <span className="badge badge-success">R$ {n.free_delivery_threshold.toFixed(2)}</span>
-                  ) : (
-                    <span style={{ color: 'var(--text-muted)' }}>Não configurado</span>
-                  )}
-                </td>
-                <td style={{ padding: '1rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleActive(n.id)}
-                    className={`badge ${n.is_active ? 'badge-success' : 'badge-danger'}`}
-                    style={{ cursor: 'pointer', border: 'none' }}
-                  >
-                    {n.is_active ? 'Ativo' : 'Desativado'}
-                  </button>
-                </td>
-                <td style={{ padding: '1rem', textAlign: 'right' }}>
-                  <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingNb(n);
-                        setIsModalOpen(true);
-                      }}
-                      className="btn btn-secondary btn-sm"
-                      title="Editar"
-                    >
-                      <Edit size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(n.id)}
-                      className="btn btn-secondary btn-sm"
-                      style={{ color: 'var(--danger)' }}
-                      title="Excluir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </td>
+      {/* ── VISUALIZAÇÃO DESKTOP: TABELA ── */}
+      <div className="card admin-desktop-table" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: '650px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '0.85rem 1rem' }}>Bairro</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Taxa de Entrega</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Pedido Mínimo</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Frete Grátis Acima de</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Status</th>
+                <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {neighborhoods.map((n) => (
+                <tr key={n.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={{ padding: '1rem', fontWeight: 700 }}>{n.name}</td>
+                  <td style={{ padding: '1rem', fontWeight: 700, color: 'var(--brand-primary)' }}>
+                    R$ {n.delivery_fee.toFixed(2)}
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    {n.min_order_amount > 0 ? `R$ ${n.min_order_amount.toFixed(2)}` : 'Sem mínimo'}
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    {n.free_delivery_threshold ? (
+                      <span className="badge badge-success">R$ {n.free_delivery_threshold.toFixed(2)}</span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>Não configurado</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(n.id)}
+                      className={`badge ${n.is_active ? 'badge-success' : 'badge-danger'}`}
+                      style={{ cursor: 'pointer', border: 'none' }}
+                    >
+                      {n.is_active ? 'Ativo' : 'Desativado'}
+                    </button>
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNb(n);
+                          setIsModalOpen(true);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        title="Editar"
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(n.id)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ color: 'var(--danger)' }}
+                        title="Excluir"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── VISUALIZAÇÃO MOBILE: CARDS RESPONSIVOS ── */}
+      <div className="admin-mobile-cards">
+        {neighborhoods.map((n) => (
+          <div
+            key={n.id}
+            className="card"
+            style={{
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                {n.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleToggleActive(n.id)}
+                className={`badge ${n.is_active ? 'badge-success' : 'badge-danger'}`}
+                style={{ cursor: 'pointer', border: 'none', padding: '0.35rem 0.65rem' }}
+              >
+                {n.is_active ? 'Ativo' : 'Desativado'}
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Taxa de Entrega</span>
+                <strong style={{ color: 'var(--brand-primary)', fontSize: '0.95rem' }}>
+                  R$ {n.delivery_fee.toFixed(2)}
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem' }}>Pedido Mínimo</span>
+                <span>{n.min_order_amount > 0 ? `R$ ${n.min_order_amount.toFixed(2)}` : 'Sem mínimo'}</span>
+              </div>
+            </div>
+
+            {n.free_delivery_threshold ? (
+              <div style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 600 }}>
+                Frete grátis a partir de R$ {n.free_delivery_threshold.toFixed(2)}
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.65rem', marginTop: '0.2rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingNb(n);
+                  setIsModalOpen(true);
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                <Edit size={14} />
+                <span>Editar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(n.id)}
+                className="btn btn-secondary btn-sm"
+                style={{ color: 'var(--danger)', flex: 1, justifyContent: 'center' }}
+              >
+                <Trash2 size={14} />
+                <span>Excluir</span>
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Modal Bairro */}

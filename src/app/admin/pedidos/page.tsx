@@ -152,8 +152,8 @@ export default function AdminOrdersPage() {
   });
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+    <div className="admin-page-container">
+      <div className="admin-header-row">
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 900 }}>Gestão de Pedidos</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -219,162 +219,337 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Lista de Pedidos */}
-      <div className="card" style={{ overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-              <th style={{ padding: '0.85rem 1rem' }}>Pedido</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Cliente</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Tipo</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Total</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Pagamento</th>
-              <th style={{ padding: '0.85rem 1rem' }}>Status Operacional</th>
-              <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Nenhum pedido encontrado para os filtros selecionados.
-                </td>
+      {/* ── VISUALIZAÇÃO DESKTOP: TABELA COM HORIZONTAL SCROLL ── */}
+      <div className="card admin-desktop-table" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: '780px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '0.85rem 1rem' }}>Pedido</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Cliente</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Tipo</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Total</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Pagamento</th>
+                <th style={{ padding: '0.85rem 1rem' }}>Status Operacional</th>
+                <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Ações</th>
               </tr>
-            ) : (
-              filteredOrders.map((order) => {
-                const statusMeta = statusLabels[order.order_status] || { label: order.order_status, badge: 'badge-info' };
-
-                return (
-                  <tr
-                    key={order.id}
-                    style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color 0.15s ease' }}
-                  >
-                    <td style={{ padding: '1rem', fontWeight: 800 }}>
-                      #{order.order_code}
-                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                        {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: 600 }}>{order.customer_name}</div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{order.customer_phone}</span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span className="badge badge-brand" style={{ fontSize: '0.75rem' }}>
-                        {order.order_type === 'delivery' ? `Entrega (${order.neighborhood_name || 'Bairro'})` : 'Retirada'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem', fontWeight: 800 }}>
-                      R$ {order.total_amount.toFixed(2)}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <select
-                        value={order.payment_status}
-                        onChange={(e) => handleUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
-                        className="form-select"
-                        style={{
-                          fontSize: '0.78rem',
-                          padding: '0.3rem 0.5rem',
-                          fontWeight: 700,
-                          borderRadius: 'var(--radius-full, 9999px)',
-                          cursor: 'pointer',
-                          backgroundColor:
-                            order.payment_status === 'paid'
-                              ? 'rgba(34, 197, 94, 0.12)'
-                              : 'rgba(234, 179, 8, 0.15)',
-                          color: order.payment_status === 'paid' ? '#15803d' : '#a16207',
-                          border:
-                            order.payment_status === 'paid'
-                              ? '1px solid rgba(34, 197, 94, 0.35)'
-                              : '1px solid rgba(234, 179, 8, 0.35)',
-                        }}
-                      >
-                        <option value="pending">🟡 Pendente</option>
-                        <option value="paid">🟢 Pago</option>
-                        <option value="cancelled">🔴 Cancelado</option>
-                      </select>
-                      <span
-                        style={{
-                          display: 'block',
-                          fontSize: '0.72rem',
-                          color: 'var(--text-muted)',
-                          marginTop: '0.25rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {paymentMethodLabels[order.payment_method] || order.payment_method}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <select
-                        value={order.order_status}
-                        onChange={(e) => handleUpdateStatus(order.id, e.target.value as OrderStatus)}
-                        className="form-select"
-                        style={{ fontSize: '0.8rem', padding: '0.35rem 0.5rem', fontWeight: 600 }}
-                      >
-                        <option value="received">Recebido</option>
-                        <option value="preparing">Em preparação</option>
-                        <option value="ready">Pronto</option>
-                        <option value="out_for_delivery">Saiu para entrega</option>
-                        <option value="completed">Concluído</option>
-                        <option value="cancelled">Cancelado</option>
-                      </select>
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedOrder(order)}
-                          className="btn btn-secondary btn-sm"
-                          title="Ver detalhes do pedido"
+            </thead>
+            <tbody>
+              {filteredOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    Nenhum pedido encontrado para os filtros selecionados.
+                  </td>
+                </tr>
+              ) : (
+                filteredOrders.map((order) => {
+                  return (
+                    <tr
+                      key={order.id}
+                      style={{ borderBottom: '1px solid var(--border-color)', transition: 'background-color 0.15s ease' }}
+                    >
+                      <td style={{ padding: '1rem', fontWeight: 800 }}>
+                        #{order.order_code}
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                          {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ fontWeight: 600 }}>{order.customer_name}</div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{order.customer_phone}</span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span className="badge badge-brand" style={{ fontSize: '0.75rem' }}>
+                          {order.order_type === 'delivery' ? `Entrega (${order.neighborhood_name || 'Bairro'})` : 'Retirada'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem', fontWeight: 800 }}>
+                        R$ {order.total_amount.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <select
+                          value={order.payment_status}
+                          onChange={(e) => handleUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
+                          className="form-select"
+                          style={{
+                            fontSize: '0.78rem',
+                            padding: '0.3rem 0.5rem',
+                            fontWeight: 700,
+                            borderRadius: 'var(--radius-full, 9999px)',
+                            cursor: 'pointer',
+                            backgroundColor:
+                              order.payment_status === 'paid'
+                                ? 'rgba(34, 197, 94, 0.12)'
+                                : 'rgba(234, 179, 8, 0.15)',
+                            color: order.payment_status === 'paid' ? '#15803d' : '#a16207',
+                            border:
+                              order.payment_status === 'paid'
+                                ? '1px solid rgba(34, 197, 94, 0.35)'
+                                : '1px solid rgba(234, 179, 8, 0.35)',
+                          }}
                         >
-                          <Eye size={14} />
-                        </button>
-                        <Link
-                          href={`/admin/pedidos/${order.order_code}/print`}
-                          className="btn btn-outline btn-sm"
-                          title="Imprimir Comprovante"
+                          <option value="pending">🟡 Pendente</option>
+                          <option value="paid">🟢 Pago</option>
+                          <option value="cancelled">🔴 Cancelado</option>
+                        </select>
+                        <span
+                          style={{
+                            display: 'block',
+                            fontSize: '0.72rem',
+                            color: 'var(--text-muted)',
+                            marginTop: '0.25rem',
+                            fontWeight: 500,
+                          }}
                         >
-                          <Printer size={14} />
-                        </Link>
-                        {order.order_status !== 'cancelled' && (
+                          {paymentMethodLabels[order.payment_method] || order.payment_method}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <select
+                          value={order.order_status}
+                          onChange={(e) => handleUpdateStatus(order.id, e.target.value as OrderStatus)}
+                          className="form-select"
+                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.5rem', fontWeight: 600 }}
+                        >
+                          <option value="received">Recebido</option>
+                          <option value="preparing">Em preparação</option>
+                          <option value="ready">Pronto</option>
+                          <option value="out_for_delivery">Saiu para entrega</option>
+                          <option value="completed">Concluído</option>
+                          <option value="cancelled">Cancelado</option>
+                        </select>
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button
                             type="button"
-                            onClick={() => handleCancelOrder(order)}
+                            onClick={() => setSelectedOrder(order)}
+                            className="btn btn-secondary btn-sm"
+                            title="Ver detalhes do pedido"
+                          >
+                            <Eye size={14} />
+                          </button>
+                          <Link
+                            href={`/admin/pedidos/${order.order_code}/print`}
+                            className="btn btn-outline btn-sm"
+                            title="Imprimir Comprovante"
+                          >
+                            <Printer size={14} />
+                          </Link>
+                          {order.order_status !== 'cancelled' && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelOrder(order)}
+                              className="btn btn-sm"
+                              style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                color: '#dc2626',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                padding: '0.35rem 0.5rem',
+                              }}
+                              title="Cancelar Pedido"
+                            >
+                              <Ban size={14} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOrder(order)}
                             className="btn btn-sm"
                             style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              color: '#dc2626',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                              color: '#b91c1c',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
                               padding: '0.35rem 0.5rem',
                             }}
-                            title="Cancelar Pedido"
+                            title="Excluir Pedido Definitivamente"
                           >
-                            <Ban size={14} />
+                            <Trash2 size={14} />
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteOrder(order)}
-                          className="btn btn-sm"
-                          style={{
-                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                            color: '#b91c1c',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            padding: '0.35rem 0.5rem',
-                          }}
-                          title="Excluir Pedido Definitivamente"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── VISUALIZAÇÃO MOBILE: CARDS RESPONSIVOS DE PEDIDO ── */}
+      <div className="admin-mobile-cards">
+        {filteredOrders.length === 0 ? (
+          <div className="card" style={{ padding: '2.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Nenhum pedido encontrado para os filtros selecionados.
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            return (
+              <div
+                key={order.id}
+                className="card"
+                style={{
+                  padding: '1.15rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                  borderLeft: `5px solid ${
+                    order.order_status === 'completed'
+                      ? 'var(--success)'
+                      : order.order_status === 'cancelled'
+                      ? 'var(--danger)'
+                      : 'var(--brand-primary)'
+                  }`,
+                }}
+              >
+                {/* Linha 1: Pedido #, Horário e Tipo */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                      #{order.order_code}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                      {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <span className="badge badge-brand" style={{ fontSize: '0.72rem', textTransform: 'none' }}>
+                    {order.order_type === 'delivery' ? `Entrega (${order.neighborhood_name || 'Bairro'})` : 'Retirada'}
+                  </span>
+                </div>
+
+                {/* Linha 2: Cliente & Telefone */}
+                <div style={{ fontSize: '0.88rem' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {order.customer_name}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {order.customer_phone}
+                  </div>
+                </div>
+
+                {/* Linha 3: Total e Pagamento */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: 'var(--radius-sm)',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Valor Total</span>
+                    <strong style={{ fontSize: '1.05rem', color: 'var(--brand-primary)' }}>
+                      R$ {order.total_amount.toFixed(2)}
+                    </strong>
+                  </div>
+                  <div>
+                    <select
+                      value={order.payment_status}
+                      onChange={(e) => handleUpdatePaymentStatus(order.id, e.target.value as PaymentStatus)}
+                      className="form-select"
+                      style={{
+                        fontSize: '0.78rem',
+                        padding: '0.35rem 0.6rem',
+                        fontWeight: 700,
+                        borderRadius: '9999px',
+                        cursor: 'pointer',
+                        backgroundColor:
+                          order.payment_status === 'paid'
+                            ? 'rgba(34, 197, 94, 0.12)'
+                            : 'rgba(234, 179, 8, 0.15)',
+                        color: order.payment_status === 'paid' ? '#15803d' : '#a16207',
+                        border:
+                          order.payment_status === 'paid'
+                            ? '1px solid rgba(34, 197, 94, 0.35)'
+                            : '1px solid rgba(234, 179, 8, 0.35)',
+                      }}
+                    >
+                      <option value="pending">🟡 Pendente</option>
+                      <option value="paid">🟢 Pago</option>
+                      <option value="cancelled">🔴 Cancelado</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Linha 4: Status Operacional */}
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    Status Operacional
+                  </label>
+                  <select
+                    value={order.order_status}
+                    onChange={(e) => handleUpdateStatus(order.id, e.target.value as OrderStatus)}
+                    className="form-select"
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', fontWeight: 700, width: '100%' }}
+                  >
+                    <option value="received">Recebido</option>
+                    <option value="preparing">Em preparação</option>
+                    <option value="ready">Pronto</option>
+                    <option value="out_for_delivery">Saiu para entrega</option>
+                    <option value="completed">Concluído</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                </div>
+
+                {/* Linha 5: Ações do Pedido */}
+                <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.2rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrder(order)}
+                    className="btn btn-primary btn-sm"
+                    style={{ flex: 1, justifyContent: 'center', fontSize: '0.85rem', padding: '0.55rem' }}
+                  >
+                    <Eye size={15} />
+                    <span>Ver Detalhes</span>
+                  </button>
+                  <Link
+                    href={`/admin/pedidos/${order.order_code}/print`}
+                    target="_blank"
+                    className="btn btn-outline btn-sm"
+                    style={{ justifyContent: 'center', padding: '0.55rem 0.85rem' }}
+                    title="Imprimir Cupom"
+                  >
+                    <Printer size={15} />
+                  </Link>
+                  {order.order_status !== 'cancelled' && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOrder(order)}
+                      className="btn btn-sm"
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        padding: '0.55rem 0.7rem',
+                      }}
+                      title="Cancelar Pedido"
+                    >
+                      <Ban size={15} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteOrder(order)}
+                    className="btn btn-sm"
+                    style={{
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      color: '#b91c1c',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      padding: '0.55rem 0.7rem',
+                    }}
+                    title="Excluir Pedido Definitivamente"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Modal de Detalhes do Pedido */}
