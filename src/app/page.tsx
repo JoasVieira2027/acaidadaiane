@@ -248,41 +248,6 @@ export default function HomePage() {
             >
               {statusText}
             </div>
-
-            {/* Card: Calcular taxa e tempo de entrega (Mobile) */}
-            <div
-              onClick={() => setIsDeliveryModalOpen(true)}
-              className="delivery-calc-card"
-              style={{ width: '100%', cursor: 'pointer' }}
-              role="button"
-              tabIndex={0}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div
-                  style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '9px',
-                    backgroundColor: 'rgba(88, 28, 135, 0.08)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <MapPin size={18} style={{ color: 'var(--brand-primary)' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                    Calcular taxa e tempo de entrega
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Consulte os bairros atendidos e frete
-                  </div>
-                </div>
-              </div>
-              <ChevronRight size={18} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
-            </div>
           </div>
 
           {/* ── 2. HEADER DO PERFIL NO DESKTOP (IMAGEM 2) ── */}
@@ -326,6 +291,43 @@ export default function HomePage() {
                   Mais informações
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* ── CARD DE CÁLCULO DE ENTREGA (Mobile & iPad - Telas < 1024px) ── */}
+          <div className="delivery-calc-banner-wrapper">
+            <div
+              onClick={() => setIsDeliveryModalOpen(true)}
+              className="delivery-calc-card"
+              style={{ width: '100%', cursor: 'pointer' }}
+              role="button"
+              tabIndex={0}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '9px',
+                    backgroundColor: 'rgba(88, 28, 135, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <MapPin size={18} style={{ color: 'var(--brand-primary)' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                    Calcular taxa e tempo de entrega
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Consulte os bairros atendidos e frete
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={18} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
             </div>
           </div>
 

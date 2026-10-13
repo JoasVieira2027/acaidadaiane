@@ -151,8 +151,12 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             </div>
           )}
 
-          <h3 className="product-card-title">{name}</h3>
-          {description && <p className="product-card-desc">{description}</p>}
+          <h3 className="product-card-title" title={name}>{name}</h3>
+          {description && (
+            <p className="product-card-desc" title={description}>
+              {description}
+            </p>
+          )}
         </div>
 
         {/* Preço no canto inferior esquerdo */}
