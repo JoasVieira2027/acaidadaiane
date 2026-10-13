@@ -48,7 +48,7 @@ export default function HomePage() {
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [isStoreInfoModalOpen, setIsStoreInfoModalOpen] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
-  const [mobileNavTab, setMobileNavTab] = useState<'home' | 'promo' | 'orders' | 'profile'>('home');
+  const [mobileNavTab, setMobileNavTab] = useState<'home' | 'frete' | 'promo' | 'orders' | 'profile'>('home');
 
   // Busca de dados
   const fetchData = React.useCallback((isInitial = false) => {
@@ -253,17 +253,35 @@ export default function HomePage() {
             <div
               onClick={() => setIsDeliveryModalOpen(true)}
               className="delivery-calc-card"
-              style={{ width: '100%' }}
+              style={{ width: '100%', cursor: 'pointer' }}
               role="button"
               tabIndex={0}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <MapPin size={18} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Calcular taxa e tempo de entrega
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '9px',
+                    backgroundColor: 'rgba(88, 28, 135, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <MapPin size={18} style={{ color: 'var(--brand-primary)' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                    Calcular taxa e tempo de entrega
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Consulte os bairros atendidos e frete
+                  </div>
+                </div>
               </div>
-              <ChevronRight size={18} style={{ color: 'var(--brand-primary)' }} />
+              <ChevronRight size={18} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
             </div>
           </div>
 
@@ -448,6 +466,21 @@ export default function HomePage() {
                 )}
               </div>
 
+              {/* No Mobile: botão de consulta rápida de taxa e frete */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileNavTab('frete');
+                  setIsDeliveryModalOpen(true);
+                }}
+                className="frete-quick-mobile-btn"
+                aria-label="Calcular taxa e frete"
+                title="Calcular Frete"
+              >
+                <MapPin size={16} style={{ color: 'var(--brand-primary)' }} />
+                <span>Frete</span>
+              </button>
+
               {/* No Mobile: botão quadrado de lupa */}
               <button
                 type="button"
@@ -583,7 +616,10 @@ export default function HomePage() {
       {/* Modal de Taxa e Tempo de Entrega */}
       <DeliveryFeeModal
         isOpen={isDeliveryModalOpen}
-        onClose={() => setIsDeliveryModalOpen(false)}
+        onClose={() => {
+          setIsDeliveryModalOpen(false);
+          setMobileNavTab('home');
+        }}
       />
 
       {/* Modal de Informações da Loja */}
@@ -619,6 +655,10 @@ export default function HomePage() {
           setActiveHighlight('all');
           setSearchQuery('');
           window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenDeliveryFee={() => {
+          setMobileNavTab('frete');
+          setIsDeliveryModalOpen(true);
         }}
         onOpenPromo={() => {
           setMobileNavTab('promo');

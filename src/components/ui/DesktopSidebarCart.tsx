@@ -115,11 +115,25 @@ export function DesktopSidebarCart({
                       <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
                         {item.product.name}
                       </div>
-                      {item.selected_options && item.selected_options.length > 0 && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {item.selected_options.map((o) => o.option_name).join(', ')}
-                        </div>
-                      )}
+                      {item.selected_options && item.selected_options.length > 0 && (() => {
+                        const grouped = item.selected_options.reduce<Record<string, string[]>>((acc, o) => {
+                          const gName = o.group_name || 'Opção';
+                          if (!acc[gName]) acc[gName] = [];
+                          const qtyStr = o.quantity > 1 ? `${o.quantity}x ` : '';
+                          acc[gName].push(`${qtyStr}${o.option_name}`);
+                          return acc;
+                        }, {});
+
+                        return (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                            {Object.entries(grouped).map(([gName, names]) => (
+                              <div key={gName}>
+                                <strong style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.65rem' }}>{gName}:</strong> {names.join(', ')}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--brand-primary)', marginTop: '3px' }}>
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(itemTotal)}
                       </div>

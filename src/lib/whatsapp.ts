@@ -119,12 +119,19 @@ export function generateWhatsAppOrderMessage(order: Order, storeName = 'Açaí d
       }
 
       if (Array.isArray(selectedOpts) && selectedOpts.length > 0) {
+        const grouped: Record<string, string[]> = {};
         selectedOpts.forEach((opt: any) => {
+          const gName = opt.group_name || 'Opção';
+          if (!grouped[gName]) grouped[gName] = [];
           const optPrice = typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price || 0));
           const optQty = typeof opt.quantity === 'number' ? opt.quantity : parseInt(String(opt.quantity || 1), 10);
           const optPriceStr = optPrice > 0 ? ` (+${formatCurrency(optPrice * optQty)})` : '';
           const optQtyStr = optQty > 1 ? `${optQty}x ` : '';
-          lines.push(`   - ${opt.group_name || 'Opção'}: ${optQtyStr}${opt.option_name || ''}${optPriceStr}`);
+          grouped[gName].push(`${optQtyStr}${opt.option_name || ''}${optPriceStr}`);
+        });
+
+        Object.entries(grouped).forEach(([gName, names]) => {
+          lines.push(`   • *${gName}:* ${names.join(', ')}`);
         });
       }
 

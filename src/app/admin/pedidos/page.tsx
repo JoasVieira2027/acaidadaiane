@@ -494,11 +494,29 @@ export default function AdminOrdersPage() {
                         <span>{item.quantity}x {item.product_name}</span>
                         <span>R$ {item.total_price.toFixed(2)}</span>
                       </div>
-                      {item.selected_options?.map((opt, i) => (
-                        <div key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                          • {opt.group_name}: {opt.option_name} {opt.price > 0 && `(+R$ ${opt.price.toFixed(2)})`}
-                        </div>
-                      ))}
+                      {item.selected_options && item.selected_options.length > 0 && (() => {
+                        const grouped = item.selected_options.reduce<Record<string, string[]>>((acc, opt) => {
+                          const gName = opt.group_name || 'Opção';
+                          if (!acc[gName]) acc[gName] = [];
+                          const priceStr = opt.price > 0 ? ` (+R$ ${opt.price.toFixed(2)})` : '';
+                          const qtyStr = (opt.quantity && opt.quantity > 1) ? `${opt.quantity}x ` : '';
+                          acc[gName].push(`${qtyStr}${opt.option_name}${priceStr}`);
+                          return acc;
+                        }, {});
+
+                        return (
+                          <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {Object.entries(grouped).map(([gName, names]) => (
+                              <div key={gName} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                <strong style={{ color: 'var(--text-primary)', textTransform: 'uppercase', fontSize: '0.72rem' }}>
+                                  • {gName}:
+                                </strong>{' '}
+                                {names.join(', ')}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>

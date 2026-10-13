@@ -178,12 +178,26 @@ export default function OrderPrintPage() {
                 <span>{item.quantity}x {item.product_name}</span>
                 <span>R$ {item.total_price.toFixed(2)}</span>
               </div>
-              {item.selected_options?.map((opt, i) => (
-                <div key={i} style={{ fontSize: '0.72rem', paddingLeft: '0.5rem' }}>
-                  • {opt.group_name}: {opt.option_name}
-                  {opt.price > 0 && ` (+R$ ${(opt.price * (opt.quantity || 1)).toFixed(2)})`}
-                </div>
-              ))}
+              {item.selected_options && item.selected_options.length > 0 && (() => {
+                const grouped = item.selected_options.reduce<Record<string, string[]>>((acc, opt) => {
+                  const gName = opt.group_name || 'Opção';
+                  if (!acc[gName]) acc[gName] = [];
+                  const priceStr = opt.price > 0 ? ` (+R$ ${(opt.price * (opt.quantity || 1)).toFixed(2)})` : '';
+                  const qtyStr = (opt.quantity && opt.quantity > 1) ? `${opt.quantity}x ` : '';
+                  acc[gName].push(`${qtyStr}${opt.option_name}${priceStr}`);
+                  return acc;
+                }, {});
+
+                return (
+                  <div style={{ paddingLeft: '0.5rem', marginTop: '0.2rem' }}>
+                    {Object.entries(grouped).map(([gName, names]) => (
+                      <div key={gName} style={{ fontSize: '0.72rem' }}>
+                        <strong>• {gName}:</strong> {names.join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {item.item_notes && (
                 <div style={{ fontSize: '0.72rem', fontStyle: 'italic', paddingLeft: '0.5rem' }}>
                   Obs: {item.item_notes}

@@ -1,15 +1,15 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { Home, Percent, ShoppingBag, User } from 'lucide-react';
+import { Home, Percent, ShoppingBag, User, MapPin } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 
 type MobileBottomNavProps = {
-  activeTab?: 'home' | 'promo' | 'orders' | 'profile';
+  activeTab?: 'home' | 'frete' | 'promo' | 'orders' | 'profile';
   onOpenPromo: () => void;
   onOpenProfile: () => void;
   onGoHome: () => void;
+  onOpenDeliveryFee: () => void;
 };
 
 export function MobileBottomNav({
@@ -17,6 +17,7 @@ export function MobileBottomNav({
   onOpenPromo,
   onOpenProfile,
   onGoHome,
+  onOpenDeliveryFee,
 }: MobileBottomNavProps) {
   const { totalItemCount, setIsCartDrawerOpen } = useCart();
 
@@ -32,11 +33,22 @@ export function MobileBottomNav({
         className={`mobile-nav-btn ${activeTab === 'home' ? 'active' : ''}`}
         aria-label="Início"
       >
-        <Home size={22} strokeWidth={activeTab === 'home' ? 2.4 : 1.8} />
+        <Home size={20} strokeWidth={activeTab === 'home' ? 2.4 : 1.8} />
         <span className="mobile-nav-label">Início</span>
       </button>
 
-      {/* 2. Promoções */}
+      {/* 2. Taxa e Frete */}
+      <button
+        type="button"
+        onClick={onOpenDeliveryFee}
+        className={`mobile-nav-btn ${activeTab === 'frete' ? 'active' : ''}`}
+        aria-label="Taxa e Frete de Entrega"
+      >
+        <MapPin size={20} strokeWidth={activeTab === 'frete' ? 2.4 : 1.8} />
+        <span className="mobile-nav-label">Frete</span>
+      </button>
+
+      {/* 3. Promoções */}
       <button
         type="button"
         onClick={onOpenPromo}
@@ -44,12 +56,12 @@ export function MobileBottomNav({
         aria-label="Promoções"
       >
         <div style={{ position: 'relative' }}>
-          <Percent size={21} strokeWidth={activeTab === 'promo' ? 2.4 : 1.8} />
+          <Percent size={20} strokeWidth={activeTab === 'promo' ? 2.4 : 1.8} />
         </div>
         <span className="mobile-nav-label">Promoções</span>
       </button>
 
-      {/* 3. Pedidos / Carrinho */}
+      {/* 4. Pedidos / Carrinho */}
       <button
         type="button"
         onClick={() => setIsCartDrawerOpen(true)}
@@ -57,7 +69,7 @@ export function MobileBottomNav({
         aria-label="Pedidos e Carrinho"
       >
         <div style={{ position: 'relative' }}>
-          <ShoppingBag size={21} strokeWidth={activeTab === 'orders' ? 2.4 : 1.8} />
+          <ShoppingBag size={20} strokeWidth={activeTab === 'orders' ? 2.4 : 1.8} />
           {totalItemCount > 0 && (
             <span
               style={{
@@ -85,14 +97,14 @@ export function MobileBottomNav({
         <span className="mobile-nav-label">Pedidos</span>
       </button>
 
-      {/* 4. Perfil / Informações da loja */}
+      {/* 5. Perfil / Informações da loja */}
       <button
         type="button"
         onClick={onOpenProfile}
         className={`mobile-nav-btn ${activeTab === 'profile' ? 'active' : ''}`}
         aria-label="Perfil e Informações"
       >
-        <User size={22} strokeWidth={activeTab === 'profile' ? 2.4 : 1.8} />
+        <User size={20} strokeWidth={activeTab === 'profile' ? 2.4 : 1.8} />
         <span className="mobile-nav-label">Perfil</span>
       </button>
     </nav>

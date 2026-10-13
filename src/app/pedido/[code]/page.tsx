@@ -661,20 +661,49 @@ export default function OrderTrackingPage({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 700 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
                         {item.quantity}x {item.product_name}
                       </div>
-                      {opts.length > 0 && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                          {opts.map((opt: any, i: number) => (
-                            <span key={i} style={{ display: 'block' }}>
-                              • {opt.group_name || 'Opção'}: {opt.option_name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {opts.length > 0 && (() => {
+                        const grouped = opts.reduce<Record<string, Array<{ name: string; extraPrice: number }>>>((acc: any, opt: any) => {
+                          const gName = opt.group_name || 'Opção';
+                          if (!acc[gName]) acc[gName] = [];
+                          const optPrice = typeof opt.price === 'number' ? opt.price : parseFloat(String(opt.price || 0));
+                          const optQty = typeof opt.quantity === 'number' ? opt.quantity : parseInt(String(opt.quantity || 1), 10);
+                          const totalExtra = optPrice * optQty;
+                          const optQtyStr = optQty > 1 ? `${optQty}x ` : '';
+                          acc[gName].push({
+                            name: `${optQtyStr}${opt.option_name || ''}`,
+                            extraPrice: totalExtra,
+                          });
+                          return acc;
+                        }, {});
+
+                        return (
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {Object.entries(grouped).map(([groupName, groupItems]) => (
+                              <div key={groupName} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', alignItems: 'baseline' }}>
+                                <span style={{ fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.02em' }}>
+                                  • {groupName}:
+                                </span>
+                                <span>
+                                  {groupItems.map((gi, idx) => (
+                                    <span key={idx}>
+                                      {gi.name}
+                                      {gi.extraPrice > 0 && (
+                                        <span style={{ color: 'var(--brand-primary)', fontWeight: 600 }}> (+R$ {gi.extraPrice.toFixed(2)})</span>
+                                      )}
+                                      {idx < groupItems.length - 1 ? ', ' : ''}
+                                    </span>
+                                  ))}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {item.item_notes && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '0.2rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '0.25rem' }}>
                           Obs: {item.item_notes}
                         </div>
                       )}
