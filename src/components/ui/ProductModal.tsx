@@ -212,7 +212,7 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
         </div>
 
         {/* Corpo do Modal: Grupos de Opções */}
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto' }}>
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', flex: 1, minHeight: 0 }}>
           {validationError && (
             <div
               style={{
