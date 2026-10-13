@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash2, CheckCircle, Ban, X, DollarSign, Loader2 } from 'lucide-react';
-import { Option, OptionGroup } from '@/lib/types';
+import { Plus, Edit, Trash2, CheckCircle, Ban, X, DollarSign, Loader2, ShoppingBag, Tag } from 'lucide-react';
+import { Option, OptionGroup, Product } from '@/lib/types';
 import { initialOptionGroups } from '@/lib/data/mockData';
 
 export default function AdminComplementsPage() {
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>(initialOptionGroups);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Estado para Criar/Editar Grupo
@@ -20,13 +21,23 @@ export default function AdminComplementsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch('/api/option-groups', { cache: 'no-store' });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.optionGroups)) {
-        setOptionGroups(data.optionGroups);
+      const [groupsRes, prodsRes] = await Promise.all([
+        fetch('/api/option-groups', { cache: 'no-store' }),
+        fetch('/api/products', { cache: 'no-store' }),
+      ]);
+      const [groupsData, prodsData] = await Promise.all([
+        groupsRes.json(),
+        prodsRes.json(),
+      ]);
+
+      if (groupsData.success && Array.isArray(groupsData.optionGroups)) {
+        setOptionGroups(groupsData.optionGroups);
+      }
+      if (prodsData.success && Array.isArray(prodsData.products)) {
+        setProducts(prodsData.products);
       }
     } catch (err) {
-      console.error('Error loading option groups:', err);
+      console.error('Error loading option groups and products:', err);
     } finally {
       setLoading(false);
     }
@@ -175,26 +186,104 @@ export default function AdminComplementsPage() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {optionGroups.map((group) => (
-          <div key={group.id} className="card" style={{ padding: '1.5rem' }}>
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '0.75rem',
-                marginBottom: '1rem',
-                borderBottom: '1px solid var(--border-color)',
-                paddingBottom: '0.85rem',
-              }}
-            >
-              <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{group.name}</h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  {group.is_required ? 'Obrigatório' : 'Opcional'} • Escolha de {group.min_options} até {group.max_options} opções
-                </span>
-              </div>
+        {optionGroups.map((group) => {
+          const linkedProducts = products.filter((p) =>
+            p.option_groups?.some((g) => g.id === group.id)
+          );
+
+          return (
+            <div key={group.id} className="card" style={{ padding: '1.5rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: '1rem',
+                  marginBottom: '1rem',
+                  borderBottom: '1px solid var(--border-color)',
+                  paddingBottom: '1rem',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: '260px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+                    <h3 style={{ fontSize: '1.18rem', fontWeight: 800, margin: 0 }}>{group.name}</h3>
+                    <span
+                      style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        backgroundColor: linkedProducts.length > 0 ? 'rgba(88, 28, 135, 0.1)' : 'rgba(100, 116, 139, 0.1)',
+                        color: linkedProducts.length > 0 ? 'var(--brand-primary)' : 'var(--text-muted)',
+                        padding: '2px 9px',
+                        borderRadius: '999px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                      }}
+                    >
+                      <ShoppingBag size={12} />
+                      {linkedProducts.length === 1
+                        ? '1 produto vinculado'
+                        : `${linkedProducts.length} produtos vinculados`}
+                    </span>
+                  </div>
+
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.65rem' }}>
+                    {group.is_required ? 'Obrigatório' : 'Opcional'} • Escolha de {group.min_options} até {group.max_options} opções
+                  </span>
+
+                  {/* Produtos onde este grupo/complementos estão sendo utilizados */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '0.4rem',
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                      }}
+                    >
+                      <Tag size={12} style={{ color: 'var(--brand-primary)' }} />
+                      Utilizado em:
+                    </span>
+                    {linkedProducts.length > 0 ? (
+                      linkedProducts.map((p) => (
+                        <span
+                          key={p.id}
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {p.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        Nenhum produto utilizando este grupo no momento
+                      </span>
+                    )}
+                  </div>
+                </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   type="button"
@@ -309,7 +398,8 @@ export default function AdminComplementsPage() {
               </p>
             )}
           </div>
-        ))}
+        );
+      })}
       </div>
 
       {/* Modal Grupo de Opções */}

@@ -211,7 +211,7 @@ export default function HomePage() {
               <img
                 src={logoImage}
                 alt={storeName}
-                style={{ width: '85%', height: '85%', objectFit: 'contain' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
 
@@ -257,7 +257,7 @@ export default function HomePage() {
               <img
                 src={logoImage}
                 alt={storeName}
-                style={{ width: '85%', height: '85%', objectFit: 'contain' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
 

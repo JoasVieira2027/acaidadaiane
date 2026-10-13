@@ -1404,14 +1404,15 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   height: 78px;
   border-radius: 50%;
   background-color: #ffffff;
-  border: 3px solid #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative;
   margin-bottom: 0.65rem;
+  padding: 0;
   z-index: 2;
 }
 
@@ -1461,14 +1462,15 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   height: 96px;
   border-radius: 16px;
   background-color: #ffffff;
-  border: 3px solid #ffffff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
+  padding: 0;
   z-index: 2;
 }
 
