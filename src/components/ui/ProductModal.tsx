@@ -56,8 +56,9 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
   // Preço base efetivo: considera promo_price do tamanho (promoção por %) ou promotional_price (promoção simples)
   const getEffectiveSizePrice = (size: typeof selectedSize) => {
     if (!size) return 0;
-    if (hasSizePromo && size.promo_price != null && size.promo_price > 0) return size.promo_price;
-    return size.price > 0 ? size.price : 0;
+    if (hasSizePromo && size.promo_price != null && Number(size.promo_price) > 0) return Number(size.promo_price);
+    if (hasSizePromo && product.promo_percent) return Number((Number(size.price) * (1 - Number(product.promo_percent) / 100)).toFixed(2));
+    return Number(size.price) > 0 ? Number(size.price) : 0;
   };
 
   const productBasePrice = !hasSizes && product.is_promo_active && product.promotional_price
@@ -275,13 +276,15 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {product.sizes!.map((size, idx) => {
                   const isSelected = selectedSize?.label === size.label;
-                  const effectivePrice = hasSizePromo && size.promo_price != null && size.promo_price > 0
-                    ? size.promo_price
-                    : size.price;
-                  const sizePromoPrice = hasSizePromo && size.promo_price != null && size.promo_price > 0
-                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(size.promo_price)
+                  const effectivePrice = hasSizePromo && size.promo_price != null && Number(size.promo_price) > 0
+                    ? Number(size.promo_price)
+                    : hasSizePromo && product.promo_percent
+                    ? Number((Number(size.price) * (1 - Number(product.promo_percent) / 100)).toFixed(2))
+                    : Number(size.price);
+                  const sizePromoPrice = hasSizePromo && effectivePrice < Number(size.price)
+                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(effectivePrice)
                     : null;
-                  const sizeNormalPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(size.price);
+                  const sizeNormalPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(size.price));
                   const sizeDisplayPrice = sizePromoPrice || sizeNormalPrice;
 
                   return (

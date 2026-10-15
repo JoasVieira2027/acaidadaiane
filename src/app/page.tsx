@@ -128,19 +128,37 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Verifica se produto está com promoção ativa (preço promocional fixo OU desconto em tamanhos)
+  const isProductInPromo = (p: Product) => {
+    return Boolean(
+      p.is_promo_active && (
+        (p.promotional_price !== null && p.promotional_price !== undefined && Number(p.promotional_price) > 0) ||
+        (p.promo_applies_to_sizes && p.promo_percent && Number(p.promo_percent) > 0) ||
+        (Array.isArray(p.sizes) && p.sizes.some((s) => s.promo_price != null && Number(s.promo_price) > 0))
+      )
+    );
+  };
+
+  const promoProductsList = useMemo(() => {
+    return products
+      .filter((p) => p.is_available && isProductInPromo(p))
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (selectedCategory !== 'all' && p.category_id !== selectedCategory) {
-        return false;
-      }
-      if (activeHighlight === 'promo' && (!p.is_promo_active || !p.promotional_price)) {
-        return false;
-      }
-      if (activeHighlight === 'bestseller' && !p.is_bestseller) {
-        return false;
-      }
-      if (activeHighlight === 'new' && !p.is_new) {
-        return false;
+      if (activeHighlight === 'promo') {
+        if (!isProductInPromo(p)) return false;
+      } else {
+        if (selectedCategory !== 'all' && p.category_id !== selectedCategory) {
+          return false;
+        }
+        if (activeHighlight === 'bestseller' && !p.is_bestseller) {
+          return false;
+        }
+        if (activeHighlight === 'new' && !p.is_new) {
+          return false;
+        }
       }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
@@ -378,6 +396,7 @@ export default function HomePage() {
                     type="button"
                     onClick={() => {
                       setSelectedCategory('all');
+                      setActiveHighlight('all');
                       setCategoryDropdownOpen(false);
                     }}
                     style={{
@@ -386,14 +405,46 @@ export default function HomePage() {
                       textAlign: 'left',
                       padding: '0.65rem 1rem',
                       fontSize: '0.875rem',
-                      fontWeight: selectedCategory === 'all' ? 700 : 400,
-                      color: selectedCategory === 'all' ? 'var(--brand-primary)' : 'var(--text-primary)',
-                      backgroundColor: selectedCategory === 'all' ? 'var(--bg-accent-subtle)' : 'transparent',
+                      fontWeight: selectedCategory === 'all' && activeHighlight !== 'promo' ? 700 : 400,
+                      color: selectedCategory === 'all' && activeHighlight !== 'promo' ? 'var(--brand-primary)' : 'var(--text-primary)',
+                      backgroundColor: selectedCategory === 'all' && activeHighlight !== 'promo' ? 'var(--bg-accent-subtle)' : 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                     }}
                   >
                     Todas as Categorias
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setActiveHighlight('promo');
+                      setMobileNavTab('promo');
+                      setCategoryDropdownOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.65rem 1rem',
+                      fontSize: '0.875rem',
+                      fontWeight: activeHighlight === 'promo' ? 700 : 600,
+                      color: '#dc2626',
+                      backgroundColor: activeHighlight === 'promo' ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <span>🏷️ Promoções do Dia</span>
+                    {promoProductsList.length > 0 && (
+                      <span className="badge badge-danger" style={{ fontSize: '0.7rem' }}>
+                        {promoProductsList.length}
+                      </span>
+                    )}
                   </button>
 
                   {categories.map((cat) => (
@@ -509,6 +560,115 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* ── ATALHOS / ABAS DE DESTAQUE (TODOS, PROMOÇÕES, MAIS VENDIDOS, NOVIDADES) ── */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveHighlight('all');
+                setMobileNavTab('home');
+              }}
+              style={{
+                padding: '0.45rem 0.95rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: activeHighlight === 'all' ? 800 : 600,
+                border: activeHighlight === 'all' ? '1px solid var(--brand-primary)' : '1px solid var(--border-color)',
+                backgroundColor: activeHighlight === 'all' ? 'var(--brand-primary)' : 'var(--bg-secondary)',
+                color: activeHighlight === 'all' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Todos os Produtos
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveHighlight('promo');
+                setMobileNavTab('promo');
+                setSelectedCategory('all');
+              }}
+              style={{
+                padding: '0.45rem 0.95rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: activeHighlight === 'promo' ? 800 : 600,
+                border: activeHighlight === 'promo' ? '1px solid var(--danger)' : '1px solid rgba(239, 68, 68, 0.3)',
+                backgroundColor: activeHighlight === 'promo' ? 'var(--danger)' : 'rgba(239, 68, 68, 0.08)',
+                color: activeHighlight === 'promo' ? '#ffffff' : 'var(--danger)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>🏷️ Promoções</span>
+              {promoProductsList.length > 0 && (
+                <span
+                  style={{
+                    backgroundColor: activeHighlight === 'promo' ? 'rgba(255,255,255,0.3)' : 'var(--danger)',
+                    color: '#ffffff',
+                    fontSize: '0.68rem',
+                    padding: '1px 6px',
+                    borderRadius: '999px',
+                    fontWeight: 900,
+                  }}
+                >
+                  {promoProductsList.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveHighlight('bestseller');
+                setMobileNavTab('home');
+              }}
+              style={{
+                padding: '0.45rem 0.95rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: activeHighlight === 'bestseller' ? 800 : 600,
+                border: activeHighlight === 'bestseller' ? '1px solid #d97706' : '1px solid var(--border-color)',
+                backgroundColor: activeHighlight === 'bestseller' ? '#d97706' : 'var(--bg-secondary)',
+                color: activeHighlight === 'bestseller' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              🔥 Mais Vendidos
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveHighlight('new');
+                setMobileNavTab('home');
+              }}
+              style={{
+                padding: '0.45rem 0.95rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: activeHighlight === 'new' ? 800 : 600,
+                border: activeHighlight === 'new' ? '1px solid #7c3aed' : '1px solid var(--border-color)',
+                backgroundColor: activeHighlight === 'new' ? '#7c3aed' : 'var(--bg-secondary)',
+                color: activeHighlight === 'new' ? '#ffffff' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              ✨ Novidades
+            </button>
+          </div>
+
           {/* ── 4. LAYOUT PRINCIPAL: 2 COLUNAS NO DESKTOP (IMAGEM 2) ── */}
           <div className="desktop-main-layout">
             
@@ -529,15 +689,91 @@ export default function HomePage() {
                   }}
                 >
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-                    Nenhum produto encontrado
+                    {activeHighlight === 'promo' ? 'Nenhuma promoção ativa no momento' : 'Nenhum produto encontrado'}
                   </h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                    Tente buscar por outro termo ou escolha outra categoria.
+                    {activeHighlight === 'promo'
+                      ? 'Fique de olho em nossas ofertas ou confira todas as categorias!'
+                      : 'Tente buscar por outro termo ou escolha outra categoria.'}
                   </p>
+                  {activeHighlight !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveHighlight('all');
+                        setMobileNavTab('home');
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ marginTop: '1rem' }}
+                    >
+                      Ver Todos os Produtos
+                    </button>
+                  )}
+                </div>
+              ) : activeHighlight === 'promo' ? (
+                // ── MODO EXCLUSIVO DE PROMOÇÕES ──
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', padding: '0.85rem 1.25rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontSize: '1.3rem' }}>🏷️</span>
+                      <div>
+                        <h2 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--danger)', margin: 0 }}>
+                          Promoções do Dia ({filteredProducts.length})
+                        </h2>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Ofertas especiais com preços promocionais por tempo limitado
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveHighlight('all');
+                        setMobileNavTab('home');
+                      }}
+                      className="btn btn-outline btn-sm"
+                      style={{ fontSize: '0.75rem' }}
+                    >
+                      Ver Cardápio
+                    </button>
+                  </div>
+                  <div className="products-grid">
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onSelect={(p) => setSelectedProduct(p)}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : selectedCategory === 'all' && !searchQuery.trim() && activeHighlight === 'all' ? (
-                // Seções organizadas por Categoria (ex: ESPECIAL PARA CRIANÇAS :), AÇAÍ E CREMES)
+                // Seções organizadas por Categoria com Promoções em Destaque no topo
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  {/* Seção destacada de Promoções no topo do cardápio */}
+                  {promoProductsList.length > 0 && (
+                    <div id="section-promos">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <h2 className="category-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#dc2626', marginBottom: 0 }}>
+                          <span>🏷️</span>
+                          <span>Promoções em Destaque</span>
+                        </h2>
+                        <span className="badge badge-danger" style={{ fontSize: '0.75rem' }}>
+                          {promoProductsList.length} em oferta
+                        </span>
+                      </div>
+                      <div className="products-grid">
+                        {promoProductsList.map((product) => (
+                          <ProductCard
+                            key={`promo-${product.id}`}
+                            product={product}
+                            onSelect={(p) => setSelectedProduct(p)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {categories.map((cat) => {
                     const catProducts = products
                       .filter((p) => p.category_id === cat.id)
@@ -650,6 +886,7 @@ export default function HomePage() {
         onOpenPromo={() => {
           setMobileNavTab('promo');
           setActiveHighlight('promo');
+          setSelectedCategory('all');
         }}
         onOpenProfile={() => {
           setMobileNavTab('profile');

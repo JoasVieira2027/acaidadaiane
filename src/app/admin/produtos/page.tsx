@@ -21,10 +21,19 @@ export default function AdminProductsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<ProductWithMeta> | null>(null);
-  const [activeSection, setActiveSection] = useState<'info' | 'image' | 'groups' | 'sizes' | 'custos'>('info');
+  const [activeSection, setActiveSection] = useState<'info' | 'image' | 'groups' | 'sizes' | 'custos' | 'promo'>('info');
 
   // Tamanhos do produto (inclui promo_price para exibir preview)
   const [editingSizes, setEditingSizes] = useState<Array<{ label: string; volume: string; price: string; promo_price?: string }>>([]);
+
+  // Helper para verificar se um produto está com promoção ativa (por tamanho ou preço fixo)
+  const isProductInPromo = (p: Partial<ProductWithMeta>) => {
+    if (!p.is_promo_active) return false;
+    if (p.promotional_price !== null && p.promotional_price !== undefined && Number(p.promotional_price) > 0) return true;
+    if (p.promo_applies_to_sizes && p.promo_percent && Number(p.promo_percent) > 0) return true;
+    if (Array.isArray(p.sizes) && p.sizes.some((s: any) => s.promo_price != null && Number(s.promo_price) > 0)) return true;
+    return false;
+  };
 
   // Imagem
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -479,7 +488,7 @@ export default function AdminProductsPage() {
       };
 
       // Processar tamanhos — mantendo promo_price se houver promoção ativa por tamanho
-      const promoPercent = editingProduct.is_promo_active && editingProduct.promo_applies_to_sizes
+      const promoPercent = Boolean(editingProduct.is_promo_active)
         ? (parsePrice(editingProduct.promo_percent) || 0)
         : 0;
 
@@ -504,19 +513,22 @@ export default function AdminProductsPage() {
         ? Math.min(...sizesData.map((s) => s.price))
         : parsePrice(editingProduct.price);
 
-      // Promoção por tamanho: is_promo_active=true + promo_applies_to_sizes=true
-      // Promoção sem tamanho: is_promo_active=true + promotional_price
+      // Promoção por tamanho: sizesData.length > 0 + is_promo_active=true + promoPercent > 0
       const hasSizePromo = sizesData.length > 0 && Boolean(editingProduct.is_promo_active) && promoPercent > 0;
+
+      // Menor preço promocional para garantir compatibilidade com filtros e buscas por promoção
+      const minPromoPrice = hasSizePromo
+        ? Math.min(...sizesData.map((s) => s.promo_price || s.price))
+        : sizesData.length === 0 && editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
+        ? parsePrice(editingProduct.promotional_price)
+        : null;
 
       const payload = {
         product: {
           ...editingProduct,
           image_url: imageUrl,
           price: autoPrice,
-          // Promoção convencional (só quando SEM tamanhos)
-          promotional_price: sizesData.length === 0 && editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
-            ? parsePrice(editingProduct.promotional_price)
-            : null,
+          promotional_price: minPromoPrice,
           is_promo_active: Boolean(editingProduct.is_promo_active),
           // Promoção por tamanho
           promo_applies_to_sizes: sizesData.length > 0 && hasSizePromo,
@@ -614,6 +626,20 @@ export default function AdminProductsPage() {
         >
           Todas ({products.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setSelectedCategoryFilter('promo')}
+          className={`btn btn-sm ${selectedCategoryFilter === 'promo' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{
+            borderRadius: 'var(--radius-full)',
+            border: selectedCategoryFilter === 'promo' ? '1px solid var(--danger)' : '1px solid rgba(239, 68, 68, 0.4)',
+            backgroundColor: selectedCategoryFilter === 'promo' ? 'var(--danger)' : 'rgba(239, 68, 68, 0.08)',
+            color: selectedCategoryFilter === 'promo' ? '#ffffff' : 'var(--danger)',
+            fontWeight: 700,
+          }}
+        >
+          🏷️ Em Promoção ({products.filter(isProductInPromo).length})
+        </button>
         {categories.map((c) => {
           const count = products.filter((p) => p.category_id === c.id).length;
           return (
@@ -655,13 +681,17 @@ export default function AdminProductsPage() {
               {(() => {
                 const filtered = selectedCategoryFilter === 'all'
                   ? products
+                  : selectedCategoryFilter === 'promo'
+                  ? products.filter(isProductInPromo)
                   : products.filter((p) => p.category_id === selectedCategoryFilter);
 
                 if (filtered.length === 0) {
                   return (
                     <tr>
                       <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        Nenhum produto cadastrado nesta categoria. Clique em "Novo Produto" para começar.
+                        {selectedCategoryFilter === 'promo'
+                          ? 'Nenhum produto em promoção no momento.'
+                          : 'Nenhum produto cadastrado nesta categoria. Clique em "Novo Produto" para começar.'}
                       </td>
                     </tr>
                   );
@@ -730,7 +760,11 @@ export default function AdminProductsPage() {
                         R$ {Number(p.price || 0).toFixed(2).replace('.', ',')}
                       </td>
                       <td style={{ padding: '0.9rem 1rem' }}>
-                        {p.is_promo_active && p.promotional_price !== null && p.promotional_price !== undefined ? (
+                        {p.is_promo_active && p.promo_applies_to_sizes && Number(p.promo_percent) > 0 ? (
+                          <span className="badge badge-danger" title={`Promoção nos tamanhos com ${p.promo_percent}% de desconto`}>
+                            -{p.promo_percent}% (Tamanhos)
+                          </span>
+                        ) : p.is_promo_active && p.promotional_price !== null && p.promotional_price !== undefined ? (
                           <span className="badge badge-danger">R$ {Number(p.promotional_price).toFixed(2).replace('.', ',')}</span>
                         ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>—</span>}
                       </td>
@@ -799,8 +833,15 @@ export default function AdminProductsPage() {
 
             {/* Tabs de seções */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', overflowX: 'auto' }}>
-              {(['info', 'sizes', 'custos', 'image', 'groups'] as const).map((sec) => {
-                const labels: Record<string, string> = { info: '📋 Info', sizes: '📏 Tamanhos', custos: '💰 Custos', image: '🖼️ Imagem', groups: '🔧 Adicionais' };
+              {(['info', 'sizes', 'promo', 'custos', 'image', 'groups'] as const).map((sec) => {
+                const labels: Record<string, string> = {
+                  info: '📋 Info',
+                  sizes: '📏 Tamanhos',
+                  promo: '🏷️ Promoção',
+                  custos: '💰 Custos',
+                  image: '🖼️ Imagem',
+                  groups: '🔧 Adicionais',
+                };
                 return (
                   <button
                     key={sec}
@@ -1101,6 +1142,164 @@ export default function AdminProductsPage() {
                         Prévia no card: {editingSizes.filter(s => s.label).map((s) => `${s.label}${s.volume ? ` (${s.volume})` : ''}`).join(' • ')}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ── SEÇÃO: PROMOÇÃO ── */}
+                {activeSection === 'promo' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', marginBottom: editingProduct?.is_promo_active ? '1rem' : 0 }}>
+                        <input
+                          type="checkbox"
+                          style={{ width: '18px', height: '18px' }}
+                          checked={editingProduct?.is_promo_active || false}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setEditingProduct({
+                              ...editingProduct!,
+                              is_promo_active: checked,
+                              promo_applies_to_sizes: editingSizes.length > 0 ? checked : false,
+                            });
+                          }}
+                        />
+                        <Tag size={20} style={{ color: 'var(--danger)' }} />
+                        <span>Ativar Promoção para este Produto</span>
+                      </label>
+
+                      {editingProduct?.is_promo_active ? (
+                        editingSizes.length > 0 ? (
+                          /* Promoção por tamanhos */
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                            <div style={{ padding: '0.75rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                              💡 <strong>Produto com Tamanhos:</strong> A promoção aplica um percentual de desconto sobre cada tamanho cadastrado. O produto irá automaticamente para a aba <strong>🏷️ Promoções</strong> e terá destaque no cardápio.
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label" style={{ fontWeight: 700 }}>
+                                Percentual de Desconto (%) *
+                              </label>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', maxWidth: '240px' }}>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="99"
+                                  step="0.5"
+                                  className="form-input"
+                                  value={editingProduct?.promo_percent ?? ''}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || undefined;
+                                    setEditingProduct({
+                                      ...editingProduct!,
+                                      promo_percent: val,
+                                      promo_applies_to_sizes: true,
+                                    });
+                                  }}
+                                  placeholder="Ex: 15"
+                                  style={{ fontWeight: 700, fontSize: '1rem' }}
+                                />
+                                <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--danger)' }}>% OFF</span>
+                              </div>
+                            </div>
+
+                            {/* Prévia dos preços por tamanho */}
+                            {editingProduct?.promo_percent && Number(editingProduct.promo_percent) > 0 && (
+                              <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <span>🏷️</span>
+                                  <span>Tabela com {editingProduct.promo_percent}% de Desconto Calculado:</span>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.65rem' }}>
+                                  {editingSizes.filter(s => s.label && s.price).map((s, i) => {
+                                    const normalPrice = parseFloat(String(s.price).replace(',', '.')) || 0;
+                                    const promoPrice = Number((normalPrice * (1 - Number(editingProduct.promo_percent) / 100)).toFixed(2));
+                                    return (
+                                      <div
+                                        key={i}
+                                        style={{
+                                          backgroundColor: 'var(--bg-tertiary)',
+                                          padding: '0.65rem 0.85rem',
+                                          borderRadius: 'var(--radius-sm)',
+                                          border: '1px solid var(--border-color)',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: '0.2rem',
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>
+                                          {s.label} {s.volume ? `(${s.volume})` : ''}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem' }}>
+                                          <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                                            R$ {normalPrice.toFixed(2).replace('.', ',')}
+                                          </span>
+                                          <span style={{ fontWeight: 900, color: 'var(--danger)', fontSize: '0.95rem' }}>
+                                            R$ {promoPrice.toFixed(2).replace('.', ',')}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                <div style={{ marginTop: '0.85rem', fontSize: '0.78rem', color: 'var(--success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                  <Check size={15} />
+                                  <span>Os preços normais são preservados. O desconto é calculado em tempo real para o cliente.</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Promoção de produto sem tamanhos (preço fixo) */
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Preço Normal Atual</label>
+                                <div style={{ padding: '0.65rem 0.85rem', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: '0.95rem' }}>
+                                  R$ {Number(String(editingProduct?.price || 0).replace(',', '.')).toFixed(2).replace('.', ',')}
+                                </div>
+                              </div>
+
+                              <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontWeight: 700, color: 'var(--danger)' }}>
+                                  Preço Promocional (R$) *
+                                </label>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  required={Boolean(editingProduct?.is_promo_active)}
+                                  className="form-input"
+                                  value={editingProduct?.promotional_price ?? ''}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct!, promotional_price: e.target.value as any })}
+                                  placeholder="Ex: 12,50 ou 0,10"
+                                  style={{ fontWeight: 700, color: 'var(--danger)' }}
+                                />
+                              </div>
+                            </div>
+
+                            {(() => {
+                              const normal = parseFloat(String(editingProduct?.price || 0).replace(',', '.')) || 0;
+                              const promo = parseFloat(String(editingProduct?.promotional_price || 0).replace(',', '.')) || 0;
+                              if (normal > 0 && promo > 0 && promo < normal) {
+                                const diff = normal - promo;
+                                const pct = Math.round((diff / normal) * 100);
+                                return (
+                                  <div style={{ padding: '0.65rem 0.85rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239, 68, 68, 0.25)', fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 700 }}>
+                                    Economia de R$ {diff.toFixed(2).replace('.', ',')} ({pct}% de desconto) para o cliente!
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        )
+                      ) : (
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, marginTop: '0.25rem' }}>
+                          Marque a caixa acima para ativar uma oferta especial com desconto para este produto no cardápio.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 
