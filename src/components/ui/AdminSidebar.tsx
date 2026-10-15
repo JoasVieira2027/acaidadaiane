@@ -18,12 +18,16 @@ import {
   LogOut,
   Menu,
   X,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageSelector } from './LanguageSelector';
 
 const menuItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/financeiro', label: 'Gestão Financeira', icon: TrendingUp },
+  { href: '/admin/clientes', label: 'Clientes (WhatsApp)', icon: Users },
   { href: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag },
   { href: '/admin/produtos', label: 'Produtos', icon: Layers },
   { href: '/admin/categorias', label: 'Categorias', icon: FolderTree },

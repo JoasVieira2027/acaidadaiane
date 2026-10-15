@@ -17,6 +17,7 @@ import {
   Loader2,
   Trash2,
   Ban,
+  Users,
 } from 'lucide-react';
 import { Order, StoreCurrentStatus, StoreSettings } from '@/lib/types';
 import { initialOrders } from '@/lib/data/mockData';
@@ -176,8 +177,16 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <Link href="/admin/produtos" className="btn btn-secondary btn-sm">
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <Link href="/admin/financeiro" className="btn btn-secondary btn-sm" style={{ fontWeight: 700 }}>
+            <TrendingUp size={16} />
+            <span>Gestão Financeira</span>
+          </Link>
+          <Link href="/admin/clientes" className="btn btn-secondary btn-sm" style={{ fontWeight: 700 }}>
+            <Users size={16} />
+            <span>Clientes WhatsApp</span>
+          </Link>
+          <Link href="/admin/produtos" className="btn btn-outline btn-sm">
             <Plus size={16} />
             <span>Cadastrar Produto</span>
           </Link>

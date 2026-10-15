@@ -16,7 +16,9 @@ export function PromoPopup({ products, onSelectProduct }: PromoPopupProps) {
   const [visible, setVisible] = useState(false);
 
   const promoProducts = products.filter(
-    (p) => p.is_promo_active && p.promotional_price && p.is_available
+    (p) => p.is_available && p.is_promo_active && (
+      Boolean(p.promotional_price) || Boolean(p.promo_applies_to_sizes && p.promo_percent)
+    )
   );
 
   useEffect(() => {
@@ -107,9 +109,19 @@ export function PromoPopup({ products, onSelectProduct }: PromoPopupProps) {
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {promoProducts.map((product) => {
             const name = localize(product, 'name');
-            const promoPrice = product.promotional_price!;
-            const originalPrice = product.price;
-            const pct = discount(originalPrice, promoPrice);
+            const hasSizePromo = Boolean(product.promo_applies_to_sizes && product.promo_percent);
+            let promoPrice = product.promotional_price || 0;
+            let originalPrice = product.price;
+            let pct = 0;
+
+            if (hasSizePromo && product.sizes && product.sizes.length > 0) {
+              const minSize = product.sizes.reduce((min, s) => s.price < min.price ? s : min, product.sizes[0]);
+              originalPrice = minSize.price;
+              promoPrice = minSize.promo_price ?? Number((minSize.price * (1 - (product.promo_percent || 0) / 100)).toFixed(2));
+              pct = product.promo_percent || discount(originalPrice, promoPrice);
+            } else {
+              pct = discount(originalPrice, promoPrice);
+            }
 
             return (
               <button
@@ -157,7 +169,7 @@ export function PromoPopup({ products, onSelectProduct }: PromoPopupProps) {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#16a34a' }}>
-                      {fmt(promoPrice)}
+                      {hasSizePromo ? `A partir de ${fmt(promoPrice)}` : fmt(promoPrice)}
                     </span>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
                       {fmt(originalPrice)}

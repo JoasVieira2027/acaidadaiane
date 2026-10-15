@@ -71,7 +71,17 @@ export type OptionGroup = {
 export type ProductSize = {
   label: string;        // Ex: "P", "M", "G", "GG"
   volume: string;       // Ex: "300ml", "500ml", "1L"
-  price: number;        // Preço deste tamanho
+  price: number;        // Preço normal deste tamanho (nunca alterado pela promoção)
+  promo_price?: number | null; // Preço promocional calculado para este tamanho
+};
+
+// Configuração de custos para cálculo de preço ideal
+export type CostConfig = {
+  ingredient_cost?: number;      // Custo dos ingredientes por unidade
+  packaging_cost?: number;       // Custo da embalagem por unidade
+  other_cost?: number;           // Outros custos por unidade
+  complement_cost?: number;      // Custo médio dos complementos
+  desired_margin?: number;       // Margem de lucro desejada (%)
 };
 
 export type Product = {
@@ -89,6 +99,9 @@ export type Product = {
   is_promo_active: boolean;
   promo_start_at?: string | null;
   promo_end_at?: string | null;
+  // Promoção aplicada a cada tamanho (em %)
+  promo_percent?: number | null;          // Ex: 20 = 20% de desconto sobre cada tamanho
+  promo_applies_to_sizes?: boolean;       // true = promoção calculada por tamanho individualmente
   is_featured: boolean;
   is_bestseller: boolean;
   is_new: boolean;
@@ -96,6 +109,7 @@ export type Product = {
   allow_notes: boolean;
   display_order: number;
   sizes?: ProductSize[] | null;
+  cost_config?: CostConfig | null;        // Configuração de custos (não afeta pedidos)
   option_groups?: OptionGroup[];
 };
 
@@ -227,3 +241,16 @@ export type StoreCurrentStatus = {
   nextOpenTime?: string | null;
   nextCloseTime?: string | null;
 };
+
+export type ExpenseCategory = 'fixa' | 'variavel' | 'ingredientes' | 'embalagens' | 'outros';
+
+export type Expense = {
+  id: string;
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  notes?: string | null;
+  created_at: string;
+};
+

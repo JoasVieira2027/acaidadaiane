@@ -17,18 +17,30 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const name = localize(product, 'name');
   const description = localize(product, 'description');
 
-  const hasPromo = product.is_promo_active && product.promotional_price;
+  const hasSizePromo = Boolean(product.promo_applies_to_sizes && product.is_promo_active && product.promo_percent);
+  const hasPromo = (product.is_promo_active && Boolean(product.promotional_price)) || hasSizePromo;
   const hasSizes = Array.isArray(product.sizes) && product.sizes.length > 0;
 
   // Menor tamanho com preço > 0
   const sizesWithPrice = hasSizes ? product.sizes!.filter((s) => Number(s.price) > 0) : [];
-  const minSizePrice = sizesWithPrice.length > 0
+  const minNormalSizePrice = sizesWithPrice.length > 0
     ? Math.min(...sizesWithPrice.map((s) => Number(s.price)))
     : null;
-  const currentPrice = hasPromo
-    ? product.promotional_price!
-    : minSizePrice !== null
-    ? minSizePrice
+
+  const minEffectiveSizePrice = sizesWithPrice.length > 0
+    ? Math.min(...sizesWithPrice.map((s) => {
+        if (hasSizePromo && s.promo_price != null && s.promo_price > 0) return Number(s.promo_price);
+        if (hasSizePromo && product.promo_percent) return Number((s.price * (1 - product.promo_percent / 100)).toFixed(2));
+        return Number(s.price);
+      }))
+    : null;
+
+  const currentPrice = hasSizePromo && minEffectiveSizePrice !== null
+    ? minEffectiveSizePrice
+    : hasPromo && product.promotional_price
+    ? product.promotional_price
+    : minNormalSizePrice !== null
+    ? minNormalSizePrice
     : product.price;
 
   const formattedPrice = new Intl.NumberFormat('pt-BR', {
@@ -36,12 +48,19 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
     currency: 'BRL',
   }).format(currentPrice);
 
-  const formattedOldPrice = hasPromo && product.price
+  const rawOldPrice = hasSizePromo && minNormalSizePrice !== null && minEffectiveSizePrice !== null && minNormalSizePrice > minEffectiveSizePrice
+    ? minNormalSizePrice
+    : hasPromo && product.promotional_price && product.price
+    ? product.price
+    : null;
+
+  const formattedOldPrice = rawOldPrice
     ? new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
-      }).format(product.price)
+      }).format(rawOldPrice)
     : null;
+
 
   const handleClick = () => {
     if (product.is_available) {
@@ -91,7 +110,25 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             </div>
           ) : (hasPromo || product.is_bestseller || product.is_new) && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.4rem' }}>
-              {hasPromo && (
+              {hasSizePromo ? (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    color: '#dc2626',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                  }}
+                >
+                  <Tag size={11} />
+                  <span>-{product.promo_percent}% OFF</span>
+                </span>
+              ) : hasPromo ? (
                 <span
                   style={{
                     display: 'inline-flex',
@@ -109,7 +146,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
                   <Tag size={11} />
                   <span>Promoção</span>
                 </span>
-              )}
+              ) : null}
               {product.is_bestseller && (
                 <span
                   style={{
@@ -161,13 +198,13 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
 
         {/* Preço no canto inferior esquerdo */}
         <div className="product-card-price-wrap">
-          {hasPromo && formattedOldPrice && (
+          {formattedOldPrice && (
             <span className="product-card-old-price">
               {formattedOldPrice}
             </span>
           )}
           <span className={`product-card-price ${hasPromo ? 'promo-price' : ''}`}>
-            {minSizePrice !== null && !hasPromo && (
+            {hasSizes && (
               <span className="product-card-from-text">a partir de </span>
             )}
             {formattedPrice}

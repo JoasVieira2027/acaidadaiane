@@ -6,7 +6,7 @@ import {
   ImageIcon, Upload, Link2, Link2Off, ChevronDown, ChevronUp,
   AlertCircle, Check, Loader2, ArrowUp, ArrowDown, ShoppingBag,
 } from 'lucide-react';
-import { Product, Category, OptionGroup } from '@/lib/types';
+import { Product, Category, OptionGroup, CostConfig } from '@/lib/types';
 
 type ProductWithMeta = Product & { category_name?: string; option_group_ids?: string[] };
 
@@ -21,10 +21,10 @@ export default function AdminProductsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<ProductWithMeta> | null>(null);
-  const [activeSection, setActiveSection] = useState<'info' | 'image' | 'groups' | 'sizes'>('info');
+  const [activeSection, setActiveSection] = useState<'info' | 'image' | 'groups' | 'sizes' | 'custos'>('info');
 
-  // Tamanhos do produto
-  const [editingSizes, setEditingSizes] = useState<Array<{ label: string; volume: string; price: string }>>([]);
+  // Tamanhos do produto (inclui promo_price para exibir preview)
+  const [editingSizes, setEditingSizes] = useState<Array<{ label: string; volume: string; price: string; promo_price?: string }>>([]);
 
   // Imagem
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -161,11 +161,12 @@ export default function AdminProductsPage() {
     setEditingProduct({ ...p });
     const gids = p.option_groups?.map((g: any) => g.id) || [];
     setSelectedGroupIds(gids);
-    // Carregar tamanhos existentes
+    // Carregar tamanhos existentes (mantendo promo_price se existir)
     const existingSizes = Array.isArray(p.sizes) ? p.sizes.map((s: any) => ({
       label: s.label || '',
       volume: s.volume || '',
       price: String(s.price ?? ''),
+      promo_price: s.promo_price != null ? String(s.promo_price) : '',
     })) : [];
     setEditingSizes(existingSizes);
     setImagePreview(p.image_url || null);
@@ -477,31 +478,52 @@ export default function AdminProductsPage() {
         return isNaN(n) ? 0 : n;
       };
 
-      // Processar tamanhos
+      // Processar tamanhos — mantendo promo_price se houver promoção ativa por tamanho
+      const promoPercent = editingProduct.is_promo_active && editingProduct.promo_applies_to_sizes
+        ? (parsePrice(editingProduct.promo_percent) || 0)
+        : 0;
+
       const sizesData = editingSizes
         .filter((s) => s.label.trim())
-        .map((s) => ({
-          label: s.label.trim(),
-          volume: s.volume.trim(),
-          price: parsePrice(s.price),
-        }));
+        .map((s) => {
+          const normalPrice = parsePrice(s.price);
+          // Calcula promo_price a partir do percentual sobre o preço do tamanho
+          const promoPrice = promoPercent > 0
+            ? Number((normalPrice * (1 - promoPercent / 100)).toFixed(2))
+            : null;
+          return {
+            label: s.label.trim(),
+            volume: s.volume.trim(),
+            price: normalPrice,               // NUNCA sobrescreve o preço original
+            promo_price: promoPrice,          // null quando sem promoção
+          };
+        });
 
-      // Se tem tamanhos, o preço base é o menor preço dos tamanhos
+      // Se tem tamanhos, o preço base é o menor preço normal dos tamanhos
       const autoPrice = sizesData.length > 0
         ? Math.min(...sizesData.map((s) => s.price))
         : parsePrice(editingProduct.price);
+
+      // Promoção por tamanho: is_promo_active=true + promo_applies_to_sizes=true
+      // Promoção sem tamanho: is_promo_active=true + promotional_price
+      const hasSizePromo = sizesData.length > 0 && Boolean(editingProduct.is_promo_active) && promoPercent > 0;
 
       const payload = {
         product: {
           ...editingProduct,
           image_url: imageUrl,
           price: autoPrice,
-          // Promoção não se aplica quando produto tem tamanhos
+          // Promoção convencional (só quando SEM tamanhos)
           promotional_price: sizesData.length === 0 && editingProduct.is_promo_active && editingProduct.promotional_price != null && (editingProduct.promotional_price as any) !== ''
             ? parsePrice(editingProduct.promotional_price)
             : null,
-          is_promo_active: sizesData.length === 0 ? Boolean(editingProduct.is_promo_active) : false,
+          is_promo_active: Boolean(editingProduct.is_promo_active),
+          // Promoção por tamanho
+          promo_applies_to_sizes: sizesData.length > 0 && hasSizePromo,
+          promo_percent: hasSizePromo ? promoPercent : null,
           sizes: sizesData.length > 0 ? sizesData : null,
+          // Custo/preço ideal
+          cost_config: editingProduct.cost_config ?? null,
         },
         option_group_ids: selectedGroupIds,
       };
@@ -776,9 +798,9 @@ export default function AdminProductsPage() {
             </div>
 
             {/* Tabs de seções */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)' }}>
-              {(['info', 'sizes', 'image', 'groups'] as const).map((sec) => {
-                const labels: Record<string, string> = { info: '📋 Informações', sizes: '📏 Tamanhos', image: '🖼️ Imagem', groups: '🔧 Complementos' };
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-tertiary)', overflowX: 'auto' }}>
+              {(['info', 'sizes', 'custos', 'image', 'groups'] as const).map((sec) => {
+                const labels: Record<string, string> = { info: '📋 Info', sizes: '📏 Tamanhos', custos: '💰 Custos', image: '🖼️ Imagem', groups: '🔧 Adicionais' };
                 return (
                   <button
                     key={sec}
@@ -786,11 +808,11 @@ export default function AdminProductsPage() {
                     onClick={() => setActiveSection(sec)}
                     style={{
                       flex: 1, padding: '0.75rem 0.5rem', fontWeight: activeSection === sec ? 700 : 500,
-                      fontSize: '0.85rem',
+                      fontSize: '0.8rem',
                       color: activeSection === sec ? 'var(--brand-primary)' : 'var(--text-secondary)',
                       backgroundColor: 'transparent', border: 'none',
                       borderBottom: activeSection === sec ? '2px solid var(--brand-primary)' : '2px solid transparent',
-                      cursor: 'pointer', whiteSpace: 'nowrap',
+                      cursor: 'pointer', whiteSpace: 'nowrap', minWidth: '70px',
                     }}
                   >
                     {labels[sec]}
@@ -949,15 +971,15 @@ export default function AdminProductsPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
-                          Configure os tamanhos disponíveis (P, M, G, GG) com volume em ml ou litros e preço.
+                          Configure os tamanhos disponíveis (P, M, G, GG) com volume e preço normal.
                         </p>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                          💡 O menor preço dos tamanhos substituirá o preço base no card do produto.
+                          💡 O menor preço dos tamanhos será exibido no card do produto.
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setEditingSizes((prev) => [...prev, { label: '', volume: '', price: '' }])}
+                        onClick={() => setEditingSizes((prev) => [...prev, { label: '', volume: '', price: '', promo_price: '' }])}
                         className="btn btn-secondary btn-sm"
                         style={{ color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)', whiteSpace: 'nowrap' }}
                       >
@@ -974,7 +996,7 @@ export default function AdminProductsPage() {
                     )}
 
                     {editingSizes.map((size, idx) => (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 110px auto', gap: '0.5rem', alignItems: 'end', backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '75px 1fr 100px auto', gap: '0.5rem', alignItems: 'end', backgroundColor: 'var(--bg-tertiary)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label" style={{ fontSize: '0.72rem' }}>Tamanho *</label>
                           <input
@@ -996,7 +1018,7 @@ export default function AdminProductsPage() {
                           />
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
-                          <label className="form-label" style={{ fontSize: '0.72rem' }}>Preço (R$) *</label>
+                          <label className="form-label" style={{ fontSize: '0.72rem' }}>Preço Normal (R$) *</label>
                           <input
                             type="text"
                             inputMode="decimal"
@@ -1018,6 +1040,62 @@ export default function AdminProductsPage() {
                       </div>
                     ))}
 
+                    {/* Promoção por Percentual sobre Tamanhos */}
+                    {editingSizes.length > 0 && (
+                      <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, cursor: 'pointer', marginBottom: editingProduct?.is_promo_active ? '0.75rem' : 0 }}>
+                          <input type="checkbox"
+                            checked={editingProduct?.is_promo_active || false}
+                            onChange={(e) => setEditingProduct({ ...editingProduct!, is_promo_active: e.target.checked, promo_applies_to_sizes: e.target.checked })}
+                          />
+                          <Tag size={16} style={{ color: 'var(--danger)' }} />
+                          <span>Ativar Promoção por Percentual nos Tamanhos</span>
+                        </label>
+                        {editingProduct?.is_promo_active && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label">Desconto (%) aplicado sobre cada tamanho</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="99"
+                                step="0.5"
+                                className="form-input"
+                                value={editingProduct?.promo_percent ?? ''}
+                                onChange={(e) => setEditingProduct({ ...editingProduct!, promo_percent: parseFloat(e.target.value) || undefined })}
+                                placeholder="Ex: 20 = 20% de desconto"
+                                style={{ maxWidth: '200px' }}
+                              />
+                            </div>
+                            {/* Preview dos preços promocionais por tamanho */}
+                            {editingProduct?.promo_percent && Number(editingProduct.promo_percent) > 0 && (
+                              <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                                <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                  🔖 Preview dos preços com {editingProduct.promo_percent}% de desconto:
+                                </p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  {editingSizes.filter(s => s.label && s.price).map((s, i) => {
+                                    const normalPrice = parseFloat(String(s.price).replace(',', '.')) || 0;
+                                    const promoPrice = Number((normalPrice * (1 - Number(editingProduct.promo_percent) / 100)).toFixed(2));
+                                    return (
+                                      <div key={i} style={{ backgroundColor: 'var(--bg-tertiary)', padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem' }}>
+                                        <span style={{ fontWeight: 700 }}>{s.label}</span>:{' '}
+                                        <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>R$ {normalPrice.toFixed(2).replace('.', ',')}</span>{' '}
+                                        <span style={{ fontWeight: 800, color: 'var(--danger)' }}>R$ {promoPrice.toFixed(2).replace('.', ',')}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                  ✅ Os preços originais são preservados. O desconto é calculado automaticamente ao salvar.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {editingSizes.length > 0 && (
                       <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         Prévia no card: {editingSizes.filter(s => s.label).map((s) => `${s.label}${s.volume ? ` (${s.volume})` : ''}`).join(' • ')}
@@ -1025,6 +1103,113 @@ export default function AdminProductsPage() {
                     )}
                   </div>
                 )}
+
+                {/* ── SEÇÃO: CUSTOS / PREÇO IDEAL ── */}
+                {activeSection === 'custos' && (() => {
+                  const cc = (editingProduct?.cost_config || {}) as any;
+                  const ingredientCost = parseFloat(String(cc.ingredient_cost || '0').replace(',', '.')) || 0;
+                  const packagingCost = parseFloat(String(cc.packaging_cost || '0').replace(',', '.')) || 0;
+                  const otherCost = parseFloat(String(cc.other_cost || '0').replace(',', '.')) || 0;
+                  const complementCost = parseFloat(String(cc.complement_cost || '0').replace(',', '.')) || 0;
+                  const desiredMargin = parseFloat(String(cc.desired_margin || '30').replace(',', '.')) || 30;
+                  const totalCost = ingredientCost + packagingCost + otherCost + complementCost;
+                  const minPrice = totalCost;
+                  const recommendedPrice = desiredMargin > 0 && desiredMargin < 100
+                    ? Number((totalCost / (1 - desiredMargin / 100)).toFixed(2))
+                    : totalCost;
+                  const currentPrice = editingSizes.length > 0
+                    ? Math.min(...editingSizes.filter(s => s.price).map(s => parseFloat(String(s.price).replace(',', '.')) || 0))
+                    : (parseFloat(String((editingProduct?.price || '0')).replace(',', '.')) || 0);
+                  const currentMargin = currentPrice > 0 && totalCost > 0
+                    ? Number(((currentPrice - totalCost) / currentPrice * 100).toFixed(1))
+                    : 0;
+
+                  const updateCC = (field: string, value: string) => {
+                    setEditingProduct(prev => prev ? {
+                      ...prev,
+                      cost_config: { ...(prev.cost_config || {}), [field]: parseFloat(value.replace(',', '.')) || 0 }
+                    } : prev);
+                  };
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                      <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--bg-accent-subtle)', borderRadius: 'var(--radius-md)', fontSize: '0.83rem', color: 'var(--brand-primary)', border: '1px solid var(--brand-primary)', fontWeight: 600 }}>
+                        💡 Esta seção é apenas para controle interno. O preço de venda não é alterado automaticamente — você decide se quer aplicar o preço sugerido.
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">🧃 Custo Ingredientes (R$)</label>
+                          <input type="text" inputMode="decimal" className="form-input"
+                            value={cc.ingredient_cost ?? ''}
+                            onChange={(e) => updateCC('ingredient_cost', e.target.value)}
+                            placeholder="Ex: 4,50" />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">📦 Custo Embalagem (R$)</label>
+                          <input type="text" inputMode="decimal" className="form-input"
+                            value={cc.packaging_cost ?? ''}
+                            onChange={(e) => updateCC('packaging_cost', e.target.value)}
+                            placeholder="Ex: 0,80" />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">🔧 Outros Custos (R$)</label>
+                          <input type="text" inputMode="decimal" className="form-input"
+                            value={cc.other_cost ?? ''}
+                            onChange={(e) => updateCC('other_cost', e.target.value)}
+                            placeholder="Ex: 0,30" />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">🍓 Custo Complementos (R$)</label>
+                          <input type="text" inputMode="decimal" className="form-input"
+                            value={cc.complement_cost ?? ''}
+                            onChange={(e) => updateCC('complement_cost', e.target.value)}
+                            placeholder="Ex: 1,20 (média)" />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">📈 Margem Desejada (%)</label>
+                          <input type="number" min="1" max="99" className="form-input"
+                            value={cc.desired_margin ?? 30}
+                            onChange={(e) => updateCC('desired_margin', e.target.value)}
+                            placeholder="Ex: 30" />
+                        </div>
+                      </div>
+
+                      {/* Painel de resultados */}
+                      {totalCost > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
+                          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.3rem' }}>Custo Total</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--danger)' }}>R$ {totalCost.toFixed(2).replace('.', ',')}</div>
+                          </div>
+                          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.3rem' }}>Preço Mínimo</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--warning)' }}>R$ {minPrice.toFixed(2).replace('.', ',')}</div>
+                          </div>
+                          <div style={{ padding: '1rem', backgroundColor: 'var(--success-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600, marginBottom: '0.3rem' }}>Preço Recomendado</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--success)' }}>R$ {recommendedPrice.toFixed(2).replace('.', ',')}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{desiredMargin}% de margem</div>
+                          </div>
+                          <div style={{ padding: '1rem', backgroundColor: 'var(--bg-accent-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--brand-primary)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--brand-primary)', fontWeight: 600, marginBottom: '0.3rem' }}>Margem Atual</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: currentMargin >= desiredMargin ? 'var(--success)' : currentMargin > 0 ? 'var(--warning)' : 'var(--danger)' }}>
+                              {currentMargin > 0 ? `${currentMargin}%` : '—'}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                              Preço atual: R$ {currentPrice.toFixed(2).replace('.', ',')}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {totalCost === 0 && (
+                        <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', border: '2px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
+                          Preencha os custos acima para ver o cálculo do preço ideal.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* ── SEÇÃO: IMAGEM ── */}
                 {activeSection === 'image' && (

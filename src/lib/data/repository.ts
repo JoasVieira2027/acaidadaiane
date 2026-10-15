@@ -2,6 +2,7 @@ import {
   BusinessHour,
   Category,
   Coupon,
+  Expense,
   Neighborhood,
   Option,
   OptionGroup,
@@ -17,6 +18,7 @@ import {
   initialBusinessHours,
   initialCategories,
   initialCoupons,
+  initialExpenses,
   initialNeighborhoods,
   initialOptionGroups,
   initialOrders,
@@ -38,7 +40,8 @@ class InMemoryStore {
   specialClosures: SpecialClosure[] = [...initialSpecialClosures];
   coupons: Coupon[] = [...initialCoupons];
   orders: Order[] = [...initialOrders];
-  nextOrderNumber = 1002;
+  expenses: Expense[] = [...initialExpenses];
+  nextOrderNumber = 1008;
 }
 
 // Global singleton to persist changes during dev server session
@@ -436,6 +439,8 @@ export const repository = {
           is_promo_active: Boolean(prod.is_promo_active),
           promo_start_at: prod.promo_start_at || null,
           promo_end_at: prod.promo_end_at || null,
+          promo_percent: prod.promo_percent != null && prod.promo_percent !== ('' as any) ? Number(prod.promo_percent) : null,
+          promo_applies_to_sizes: Boolean(prod.promo_applies_to_sizes),
           is_featured: Boolean(prod.is_featured),
           is_bestseller: Boolean(prod.is_bestseller),
           is_new: Boolean(prod.is_new),
@@ -443,6 +448,7 @@ export const repository = {
           allow_notes: prod.allow_notes !== undefined ? Boolean(prod.allow_notes) : true,
           display_order: prod.display_order !== undefined ? Number(prod.display_order) : 0,
           sizes: prod.sizes && Array.isArray(prod.sizes) && prod.sizes.length > 0 ? prod.sizes : null,
+          cost_config: prod.cost_config ?? null,
           updated_at: new Date().toISOString(),
         };
 
@@ -1071,4 +1077,76 @@ export const repository = {
     );
     return true;
   },
+
+  // DESPESAS OPERACIONAIS (GESTÃO FINANCEIRA)
+  async getExpenses(): Promise<Expense[]> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
+        if (!error && data) return data;
+      } catch (err) {
+        console.error('Erro getExpenses Supabase:', err);
+      }
+    }
+    return [...globalStore.expenses].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  },
+
+  async saveExpense(exp: Partial<Expense>): Promise<Expense> {
+    const supabase = createSupabaseAdminClient();
+    const payload = {
+      title: exp.title || 'Despesa',
+      category: exp.category || 'outros',
+      amount: Number(exp.amount || 0),
+      date: exp.date || new Date().toISOString().split('T')[0],
+      notes: exp.notes || null,
+      created_at: exp.created_at || new Date().toISOString(),
+    };
+
+    if (supabase) {
+      try {
+        const isUuid = (val?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val || '');
+        if (exp.id && isUuid(exp.id)) {
+          const { data, error } = await supabase.from('expenses').update(payload).eq('id', exp.id).select().single();
+          if (!error && data) return data;
+        } else {
+          const { data, error } = await supabase.from('expenses').insert([payload]).select().single();
+          if (!error && data) return data;
+        }
+      } catch (err) {
+        console.error('Erro saveExpense Supabase:', err);
+      }
+    }
+
+    if (exp.id) {
+      const idx = globalStore.expenses.findIndex((e: Expense) => e.id === exp.id);
+      if (idx >= 0) {
+        globalStore.expenses[idx] = { ...globalStore.expenses[idx], ...payload, id: exp.id };
+        return globalStore.expenses[idx];
+      }
+    }
+
+    const newExp: Expense = {
+      id: `exp-${Date.now()}`,
+      ...payload,
+    };
+    globalStore.expenses.unshift(newExp);
+    return newExp;
+  },
+
+  async deleteExpense(id: string): Promise<boolean> {
+    const supabase = createSupabaseAdminClient();
+    if (supabase) {
+      try {
+        await supabase.from('expenses').delete().eq('id', id);
+      } catch (err) {
+        console.error('Erro deleteExpense Supabase:', err);
+      }
+    }
+    globalStore.expenses = globalStore.expenses.filter((e: Expense) => e.id !== id);
+    return true;
+  },
 };
+

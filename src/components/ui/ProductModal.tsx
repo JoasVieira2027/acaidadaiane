@@ -50,14 +50,30 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
   const productName = localize(product, 'name');
   const productDescription = localize(product, 'description');
 
-  // Preço base: se tem tamanho selecionado com preço > 0, usa o preço do tamanho
-  // Se o tamanho tem preço 0 (não definido), mantém o preço base do produto
-  const productBasePrice = product.is_promo_active && product.promotional_price
+  // Verifica se o produto tem promoção por percentual nos tamanhos
+  const hasSizePromo = Boolean(product.promo_applies_to_sizes && product.is_promo_active && product.promo_percent);
+
+  // Preço base efetivo: considera promo_price do tamanho (promoção por %) ou promotional_price (promoção simples)
+  const getEffectiveSizePrice = (size: typeof selectedSize) => {
+    if (!size) return 0;
+    if (hasSizePromo && size.promo_price != null && size.promo_price > 0) return size.promo_price;
+    return size.price > 0 ? size.price : 0;
+  };
+
+  const productBasePrice = !hasSizes && product.is_promo_active && product.promotional_price
     ? product.promotional_price
     : product.price;
   const basePrice = hasSizes && selectedSize && selectedSize.price > 0
-    ? selectedSize.price
+    ? getEffectiveSizePrice(selectedSize)
     : productBasePrice;
+
+  // Preço normal (sem desconto) para exibir riscado
+  const normalBasePrice = hasSizes && selectedSize
+    ? selectedSize.price
+    : product.price;
+  const hasActiveDiscount = hasSizes
+    ? (hasSizePromo && selectedSize?.promo_price != null)
+    : (product.is_promo_active && !!product.promotional_price);
 
   // Calcula adicional de todas as opções selecionadas
   const optionsTotal = Object.values(selectedOptionsMap)
@@ -66,6 +82,7 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
 
   const finalUnitPrice = basePrice + optionsTotal;
   const finalTotalPrice = finalUnitPrice * quantity;
+
 
   const handleToggleOption = (group: OptionGroup, option: Option) => {
     setValidationError(null);
@@ -163,7 +180,11 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
     if (editingCartItem) {
       updateItem(editingCartItem.cart_id, quantity, allSelected, itemNotes.trim() || undefined);
     } else {
-      addItem(product, quantity, allSelected, itemNotes.trim() || undefined, hasSizes && selectedSize && selectedSize.price > 0 ? selectedSize.price : undefined);
+      // Usa o preço efetivo do tamanho: promo_price se há promoção por %, price normal caso contrário
+      const effectiveSizePrice = hasSizes && selectedSize && selectedSize.price > 0
+        ? getEffectiveSizePrice(selectedSize)
+        : undefined;
+      addItem(product, quantity, allSelected, itemNotes.trim() || undefined, effectiveSizePrice);
     }
     onClose();
   };
@@ -254,7 +275,15 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {product.sizes!.map((size, idx) => {
                   const isSelected = selectedSize?.label === size.label;
-                  const sizePrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(size.price);
+                  const effectivePrice = hasSizePromo && size.promo_price != null && size.promo_price > 0
+                    ? size.promo_price
+                    : size.price;
+                  const sizePromoPrice = hasSizePromo && size.promo_price != null && size.promo_price > 0
+                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(size.promo_price)
+                    : null;
+                  const sizeNormalPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(size.price);
+                  const sizeDisplayPrice = sizePromoPrice || sizeNormalPrice;
+
                   return (
                     <button
                       key={idx}
@@ -268,20 +297,39 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
                         minWidth: '70px',
                         borderRadius: 'var(--radius-md)',
                         backgroundColor: isSelected ? 'var(--bg-accent-subtle)' : 'var(--bg-secondary)',
-                        border: isSelected ? '2px solid var(--brand-primary)' : '1px solid var(--border-color)',
+                        border: isSelected
+                          ? '2px solid var(--brand-primary)'
+                          : sizePromoPrice ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--border-color)',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
+                        position: 'relative',
                       }}
                     >
+                      {sizePromoPrice && (
+                        <span style={{ position: 'absolute', top: '-8px', right: '-8px', backgroundColor: 'var(--danger)', color: '#fff', fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: '999px' }}>
+                          -{product.promo_percent}%
+                        </span>
+                      )}
                       <span style={{ fontWeight: 800, fontSize: '1rem', color: isSelected ? 'var(--brand-primary)' : 'var(--text-primary)' }}>
                         {size.label}
                       </span>
                       {size.volume && (
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{size.volume}</span>
                       )}
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isSelected ? 'var(--brand-primary)' : 'var(--text-secondary)', marginTop: '4px' }}>
-                        {sizePrice}
-                      </span>
+                      {sizePromoPrice ? (
+                        <>
+                          <span style={{ fontSize: '0.72rem', textDecoration: 'line-through', color: 'var(--text-muted)', marginTop: '3px' }}>
+                            {sizeNormalPrice}
+                          </span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--danger)', marginTop: '1px' }}>
+                            {sizeDisplayPrice}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isSelected ? 'var(--brand-primary)' : 'var(--text-secondary)', marginTop: '4px' }}>
+                          {sizeDisplayPrice}
+                        </span>
+                      )}
                       {isSelected && (
                         <span style={{ marginTop: '4px' }}>
                           <Check size={14} color="var(--brand-primary)" strokeWidth={3} />
@@ -293,6 +341,7 @@ export function ProductModal({ product, onClose, editingCartItem }: ProductModal
               </div>
             </div>
           )}
+
 
           {product.option_groups && product.option_groups.length > 0 ? (
 
