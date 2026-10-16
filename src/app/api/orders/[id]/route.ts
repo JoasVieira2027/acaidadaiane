@@ -68,15 +68,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await repository.updateOrderStatus(order.id, order_status);
       order.order_status = order_status;
 
-      // Dispara push notification para o cliente (fire-and-forget, falha silenciosa)
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-      fetch(`${siteUrl}/api/push/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderCode: order.order_code, status: order_status }),
-      }).catch((pushErr) => {
-        console.warn('Push send falhou (não crítico):', pushErr?.message || pushErr);
-      });
+      // Dispara push notification para o cliente (in-process, seguro)
+      import('@/lib/push')
+        .then(({ sendOrderStatusPush }) => sendOrderStatusPush(order.order_code, order_status))
+        .catch((pushErr) => {
+          console.warn('Push send falhou (não crítico):', pushErr?.message || pushErr);
+        });
     }
 
     if (payment_status) {

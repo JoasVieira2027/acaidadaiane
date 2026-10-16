@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useCallback, useRef } from 'react';
 
@@ -9,7 +9,7 @@ import { useEffect, useCallback, useRef } from 'react';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface NewOrderAlertOptions {
-  /** Intervalo em ms entre polls (default: 15000) */
+  /** Intervalo em ms entre polls (default: 8000) */
   pollingIntervalMs?: number;
   /** Callback chamado quando chegam novos pedidos */
   onNewOrders: (count: number, latestCode: string) => void;
@@ -17,32 +17,58 @@ export interface NewOrderAlertOptions {
   enabled?: boolean;
 }
 
-// Toca um beep sintetico via Web Audio API
-function playAlertSound() {
+let sharedAudioCtx: AudioContext | null = null;
+
+function getUnlockedAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.12);
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.24);
-
-    gain.gain.setValueAtTime(0.4, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.5);
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
   } catch {
-    // Silencioso em contextos sem AudioContext
+    return null;
+  }
+}
+
+// Toca som de sino / campainha de pedido ("ding-dong!")
+export function playAlertSound() {
+  try {
+    const ctx = getUnlockedAudioContext();
+    if (!ctx) return;
+
+    const playTone = (freq: number, startOffset: number, duration: number, vol = 0.6) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
+
+      gain.gain.setValueAtTime(vol, ctx.currentTime + startOffset);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startOffset + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime + startOffset);
+      osc.stop(ctx.currentTime + startOffset + duration);
+    };
+
+    // Tríade brilhante e audível: 784Hz -> 1046Hz -> 1318Hz
+    playTone(784, 0, 0.22, 0.7);
+    playTone(1046, 0.18, 0.3, 0.75);
+    playTone(1318, 0.4, 0.55, 0.8);
+  } catch (err) {
+    console.warn('Erro ao tocar som:', err);
   }
 }
 
 export function useNewOrderAlert({
-  pollingIntervalMs = 15000,
+  pollingIntervalMs = 8000,
   onNewOrders,
   enabled = true,
 }: NewOrderAlertOptions) {
@@ -50,6 +76,21 @@ export function useNewOrderAlert({
   const lastLatestIdRef = useRef<string | null>(null);
   const onNewOrdersRef = useRef(onNewOrders);
   onNewOrdersRef.current = onNewOrders;
+
+  // Destrava o áudio no primeiro clique/toque do operador no painel admin
+  useEffect(() => {
+    const unlock = () => {
+      getUnlockedAudioContext();
+    };
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('keydown', unlock, { passive: true });
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   const checkOrders = useCallback(async () => {
     try {
@@ -59,8 +100,9 @@ export function useNewOrderAlert({
 
       const orders: any[] = data.orders;
       const count = orders.length;
-      const latestId = orders[0]?.id || null;
-      const latestCode = orders[0]?.order_code || '';
+      const latestOrder = orders[0];
+      const latestId = latestOrder?.id || null;
+      const latestCode = latestOrder?.order_code || '';
 
       // Inicializacao: apenas salva baseline sem alertar
       if (lastOrderCountRef.current === null) {
@@ -69,12 +111,12 @@ export function useNewOrderAlert({
         return;
       }
 
-      const newCount = count - lastOrderCountRef.current;
-      const latestChanged = latestId !== lastLatestIdRef.current;
+      const countDiff = count - lastOrderCountRef.current;
+      const latestChanged = latestId && latestId !== lastLatestIdRef.current;
 
-      if (newCount > 0 && latestChanged) {
+      if (countDiff > 0 || (latestChanged && count >= lastOrderCountRef.current)) {
         playAlertSound();
-        onNewOrdersRef.current(newCount, latestCode);
+        onNewOrdersRef.current(Math.max(1, countDiff), latestCode);
         lastOrderCountRef.current = count;
         lastLatestIdRef.current = latestId;
       }

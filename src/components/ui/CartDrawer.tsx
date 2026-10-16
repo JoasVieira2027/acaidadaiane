@@ -145,7 +145,7 @@ export function CartDrawer() {
         )}
 
         {/* Lista de Itens */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem' }}>
           {items.length === 0 ? (
             <div
               style={{
@@ -317,11 +317,13 @@ export function CartDrawer() {
           <div
             style={{
               padding: '1.25rem',
+              paddingBottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))',
               borderTop: '1px solid var(--border-color)',
               backgroundColor: 'var(--bg-secondary)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1rem',
+              gap: '0.85rem',
+              flexShrink: 0,
             }}
           >
             {/* Modalidade de Entrega */}

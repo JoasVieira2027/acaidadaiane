@@ -89,21 +89,30 @@ export default function OrderTrackingPage({
   const autoOpenedWhatsAppRef = React.useRef(false);
 
   // ── Push Notifications ──
-  type PushState = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported';
+  type PushState = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported' | 'ios_safari';
   const [pushState, setPushState] = useState<PushState>('idle');
 
-  // Verifica se já está inscrito ao carregar a página
+  // Verifica se já está inscrito ou se precisa de instrução para iOS
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (typeof window === 'undefined') return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+    const isStandalone = (window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isIOS && !isStandalone) {
+      setPushState('ios_safari');
+      return;
+    }
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPushState('unsupported');
       return;
     }
-    if (Notification.permission === 'denied') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
       setPushState('denied');
       return;
     }
-    // Se já foi concedida, verifica se já tem subscription ativa
-    if (Notification.permission === 'granted') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       navigator.serviceWorker.ready.then((reg) =>
         reg.pushManager.getSubscription()
       ).then((sub) => {
@@ -116,16 +125,25 @@ export default function OrderTrackingPage({
     if (!code) return;
     setPushState('loading');
     try {
+      if (typeof Notification === 'undefined') {
+        setPushState('unsupported');
+        return;
+      }
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setPushState('denied');
         return;
       }
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+      let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
       if (!vapidKey) {
-        console.warn('VAPID public key não configurada.');
-        setPushState('unsupported');
-        return;
+        try {
+          const vRes = await fetch('/api/push/vapid-key');
+          const vData = await vRes.json();
+          if (vData.publicKey) vapidKey = vData.publicKey;
+        } catch {}
+      }
+      if (!vapidKey) {
+        vapidKey = 'BC80XQI3kOyCt90jFpSzgEIcZcno_-gosPpcPyY87Y-2gnHDiJSB6ESMhnAdyOufxEvJjV8eWD8McxxayZpveZc';
       }
 
       const reg = await navigator.serviceWorker.ready;
@@ -161,7 +179,7 @@ export default function OrderTrackingPage({
       }
     } catch (err) {
       console.error('Erro ao inscrever push:', err);
-      setPushState(Notification.permission === 'denied' ? 'denied' : 'idle');
+      setPushState(typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'denied' : 'idle');
     }
   };
 
@@ -478,6 +496,8 @@ export default function OrderTrackingPage({
                   ? { backgroundColor: '#f0fdf4', borderColor: '#86efac' }
                   : pushState === 'denied'
                   ? { backgroundColor: '#fff7ed', borderColor: '#fdba74' }
+                  : pushState === 'ios_safari'
+                  ? { backgroundColor: '#eff6ff', borderColor: '#93c5fd' }
                   : { backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--brand-primary)' }),
               }}
             >
@@ -486,6 +506,8 @@ export default function OrderTrackingPage({
                   <Bell size={20} color="#16a34a" />
                 ) : pushState === 'denied' ? (
                   <BellOff size={20} color="#ea580c" />
+                ) : pushState === 'ios_safari' ? (
+                  <Bell size={20} color="#2563eb" />
                 ) : (
                   <Bell size={20} color="var(--brand-primary)" />
                 )}
@@ -496,16 +518,25 @@ export default function OrderTrackingPage({
                         Notificações ativadas!
                       </span>
                       <span style={{ fontSize: '0.78rem', color: '#166534' }}>
-                        Você receberá alertas a cada atualização do pedido.
+                        Você receberá alertas na tela a cada mudança de status do pedido.
                       </span>
                     </>
                   ) : pushState === 'denied' ? (
                     <>
                       <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#c2410c', display: 'block' }}>
-                        Notificações bloqueadas
+                        Notificações bloqueadas no navegador
                       </span>
                       <span style={{ fontSize: '0.78rem', color: '#9a3412' }}>
-                        Permita nas configurações do navegador para receber alertas.
+                        Permita as notificações nas configurações do seu navegador para receber alertas.
+                      </span>
+                    </>
+                  ) : pushState === 'ios_safari' ? (
+                    <>
+                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1d4ed8', display: 'block' }}>
+                        Notificações no iPhone
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: '#1e40af', lineHeight: 1.3, display: 'block' }}>
+                        Toque em <strong>Compartilhar (ícone ⬆️)</strong> no Safari e selecione <strong>Adicionar à Tela de Início</strong> para receber avisos do pedido!
                       </span>
                     </>
                   ) : (
@@ -514,13 +545,13 @@ export default function OrderTrackingPage({
                         Ativar notificações do pedido
                       </span>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Receba alertas quando seu açaí estiver pronto ou saiu para entrega!
+                        Receba alertas no seu celular quando seu açaí estiver pronto ou sair para entrega!
                       </span>
                     </>
                   )}
                 </div>
               </div>
-              {pushState !== 'subscribed' && pushState !== 'denied' && (
+              {pushState !== 'subscribed' && pushState !== 'denied' && pushState !== 'ios_safari' && (
                 <button
                   type="button"
                   onClick={handleSubscribePush}

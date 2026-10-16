@@ -5,6 +5,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supa
 import { OrderItem, SelectedOption, Product, OptionGroup } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function POST(req: NextRequest) {
   try {
