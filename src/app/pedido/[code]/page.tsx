@@ -165,16 +165,22 @@ export default function OrderTrackingPage({
       });
 
       const subJson = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+      const normalizedCode = String(code).trim().toUpperCase();
+
+      console.log('[Push] Enviando inscrição para pedido:', normalizedCode);
 
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderCode: code, subscription: subJson }),
+        body: JSON.stringify({ orderCode: normalizedCode, subscription: subJson }),
       });
 
       if (res.ok) {
+        console.log('[Push] Inscrição salva com sucesso!');
         setPushState('subscribed');
       } else {
+        const errBody = await res.text().catch(() => '');
+        console.error('[Push] Falha ao salvar inscrição:', res.status, errBody);
         setPushState('idle');
       }
     } catch (err) {
@@ -182,6 +188,7 @@ export default function OrderTrackingPage({
       setPushState(typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'denied' : 'idle');
     }
   };
+
 
   // Resolução da Promise do Next.js 15 em background
   useEffect(() => {

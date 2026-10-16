@@ -40,27 +40,27 @@ const statusLabels: Record<OrderStatus, { label: string; badge: string }> = {
 // Gera mensagem profissional de "Saiu para Entrega" para o WhatsApp do cliente
 function generateDeliveryWhatsAppMessage(order: Order): string {
   const lines: string[] = [];
-  lines.push(`Olá, *${order.customer_name}*! 🛵`);
+  lines.push(`Olá, ${order.customer_name}.`);
   lines.push('');
-  lines.push(`Boa notícia! O seu pedido *#${order.order_code}* do *Açaí da Daiane* acabou de sair para entrega e logo chegará até você!`);
+  lines.push(`Informamos que o seu pedido *#${order.order_code}* saiu para entrega e em breve chegará ao seu endereço.`);
   lines.push('');
   if (order.order_type === 'delivery') {
-    lines.push(`📍 *Endereço de Entrega:*`);
-    lines.push(`${order.address_street || ''}, nº ${order.address_number || 'S/N'}${order.address_complement ? ` – ${order.address_complement}` : ''}`);
+    lines.push(`*Endereco de entrega:*`);
+    lines.push(`${order.address_street || ''}, n. ${order.address_number || 'S/N'}${order.address_complement ? ` - ${order.address_complement}` : ''}`);
     lines.push(`Bairro: ${order.neighborhood_name || ''}`);
-    if (order.address_reference) lines.push(`Referência: ${order.address_reference}`);
+    if (order.address_reference) lines.push(`Referencia: ${order.address_reference}`);
     lines.push('');
   }
-  lines.push(`💜 *Resumo do Pedido:*`);
+  lines.push(`*Resumo:*`);
   if (order.items && order.items.length > 0) {
     order.items.forEach((item) => {
-      lines.push(`  • ${item.quantity || 1}x ${item.product_name}`);
+      lines.push(`- ${item.quantity || 1}x ${item.product_name}`);
     });
   }
-  lines.push(``);
-  lines.push(`💰 *Total:* R$ ${order.total_amount.toFixed(2)}`);
-  lines.push(``);
-  lines.push(`Obrigado pela preferência! Qualquer dúvida, estamos aqui. 🍇`);
+  lines.push('');
+  lines.push(`*Total:* R$ ${order.total_amount.toFixed(2)}`);
+  lines.push('');
+  lines.push(`Em caso de duvidas, estamos a disposicao.`);
   return lines.join('\n');
 }
 
