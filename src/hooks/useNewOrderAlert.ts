@@ -2,94 +2,101 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// useNewOrderAlert
-// Hook que monitora novos pedidos via polling e dispara som + popup no admin.
-// ─────────────────────────────────────────────────────────────────────────────
-
 export interface NewOrderAlertOptions {
-  /** Intervalo em ms entre polls (default: 8000) */
   pollingIntervalMs?: number;
-  /** Callback chamado quando chegam novos pedidos */
   onNewOrders: (count: number, latestCode: string) => void;
-  /** Se false, nao faz polling */
   enabled?: boolean;
 }
 
 let sharedAudioCtx: AudioContext | null = null;
 
-function getUnlockedAudioContext(): AudioContext | null {
+function getAudioCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return null;
-    if (!sharedAudioCtx) {
-      sharedAudioCtx = new AudioCtx();
-    }
-    if (sharedAudioCtx.state === 'suspended') {
-      sharedAudioCtx.resume().catch(() => {});
-    }
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
     return sharedAudioCtx;
   } catch {
     return null;
   }
 }
 
-/**
- * Toca um tom via Web Audio API.
- * type: 'sine' | 'square' | 'sawtooth' | 'triangle'
- */
-function playTone(
-  ctx: AudioContext,
-  freq: number,
-  startOffset: number,
-  duration: number,
-  vol = 0.8,
-  type: OscillatorType = 'sine',
-) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
-
-  gain.gain.setValueAtTime(0.001, ctx.currentTime + startOffset);
-  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startOffset + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startOffset + duration);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-
-  osc.start(ctx.currentTime + startOffset);
-  osc.stop(ctx.currentTime + startOffset + duration + 0.02);
+async function ensureAudioReady(): Promise<AudioContext | null> {
+  const ctx = getAudioCtx();
+  if (!ctx) return null;
+  // Tenta desbloquear o contexto independente do estado da aba
+  if (ctx.state === 'suspended' || ctx.state === 'interrupted' as any) {
+    try { await ctx.resume(); } catch { return null; }
+  }
+  return ctx.state === 'running' ? ctx : null;
 }
 
-/**
- * Toca uma sequência de alerta estilo "campainha de caixa" — grave, forte e
- * repete 2 vezes com 700ms de intervalo.
- */
-export function playAlertSound() {
-  try {
-    const ctx = getUnlockedAudioContext();
-    if (!ctx) return;
+function playNote(
+  ctx: AudioContext,
+  freq: number,
+  start: number,
+  dur: number,
+  vol: number,
+) {
+  // Oscilador principal
+  const osc = ctx.createOscillator();
+  // Segundo oscilador uma oitava abaixo para dar corpo/grave
+  const osc2 = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const compressor = ctx.createDynamicsCompressor();
 
-    const playSequence = (timeOffset: number) => {
-      // Nota 1: DÓ grave — 261 Hz, sine, forte
-      playTone(ctx, 261, timeOffset + 0.00, 0.30, 1.0, 'sine');
-      // Nota 2: MI — 329 Hz, sine
-      playTone(ctx, 329, timeOffset + 0.22, 0.28, 0.95, 'sine');
-      // Nota 3: SOL — 392 Hz, sine, mais longa
-      playTone(ctx, 392, timeOffset + 0.42, 0.45, 1.0, 'sine');
-      // Nota 4: DÓ agudo — 523 Hz, resonância final
-      playTone(ctx, 523, timeOffset + 0.75, 0.55, 0.90, 'sine');
-    };
+  compressor.threshold.value = -6;
+  compressor.knee.value = 3;
+  compressor.ratio.value = 2;
+  compressor.attack.value = 0.001;
+  compressor.release.value = 0.1;
 
-    // Toca 2 vezes — 1ª imediata, 2ª após 1.6s
-    playSequence(0);
-    playSequence(1.6);
-  } catch (err) {
-    console.warn('Erro ao tocar som de alerta:', err);
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  osc2.type = 'triangle';
+  osc2.frequency.value = freq / 2;
+
+  const t = ctx.currentTime + start;
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.02);
+  gain.gain.setValueAtTime(vol, t + dur * 0.6);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+  osc.connect(gain);
+  osc2.connect(gain);
+  gain.connect(compressor);
+  compressor.connect(ctx.destination);
+
+  osc.start(t);
+  osc.stop(t + dur + 0.01);
+  osc2.start(t);
+  osc2.stop(t + dur + 0.01);
+}
+
+// Toca sequência de 4 notas, repete `times` vezes
+async function playAlertSequence(times = 2) {
+  const ctx = await ensureAudioReady();
+  if (!ctx) return;
+
+  const notes = [
+    { freq: 523, dur: 0.25, vol: 1.0 }, // Dó 5
+    { freq: 659, dur: 0.22, vol: 1.0 }, // Mi 5
+    { freq: 784, dur: 0.22, vol: 1.0 }, // Sol 5
+    { freq: 1046, dur: 0.45, vol: 0.95 }, // Dó 6 — nota final longa
+  ];
+
+  for (let rep = 0; rep < times; rep++) {
+    let offset = rep * 1.5; // 1.5s entre cada repetição
+    notes.forEach((n) => {
+      playNote(ctx, n.freq, offset, n.dur, n.vol);
+      offset += n.dur - 0.02; // leve sobreposição para fluidez
+    });
   }
+}
+
+export function playAlertSound() {
+  playAlertSequence(2).catch(() => {});
 }
 
 export function useNewOrderAlert({
@@ -102,19 +109,31 @@ export function useNewOrderAlert({
   const onNewOrdersRef = useRef(onNewOrders);
   onNewOrdersRef.current = onNewOrders;
 
-  // Destrava o áudio no primeiro clique/toque do operador no painel admin
+  // Desbloqueia o AudioContext no primeiro gesto do usuário
   useEffect(() => {
     const unlock = () => {
-      getUnlockedAudioContext();
+      getAudioCtx(); // cria o contexto
+      ensureAudioReady().catch(() => {}); // tenta resumir
     };
-    window.addEventListener('click', unlock, { passive: true });
-    window.addEventListener('touchstart', unlock, { passive: true });
-    window.addEventListener('keydown', unlock, { passive: true });
+    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach((evt) =>
+      window.addEventListener(evt, unlock, { passive: true, once: false })
+    );
     return () => {
-      window.removeEventListener('click', unlock);
-      window.removeEventListener('touchstart', unlock);
-      window.removeEventListener('keydown', unlock);
+      ['click', 'touchstart', 'keydown', 'pointerdown'].forEach((evt) =>
+        window.removeEventListener(evt, unlock)
+      );
     };
+  }, []);
+
+  // Retoma o AudioContext sempre que a aba volta ao foco
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        ensureAudioReady().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   const checkOrders = useCallback(async () => {
@@ -129,7 +148,6 @@ export function useNewOrderAlert({
       const latestId = latestOrder?.id || null;
       const latestCode = latestOrder?.order_code || '';
 
-      // Inicialização: salva baseline sem alertar
       if (lastOrderCountRef.current === null) {
         lastOrderCountRef.current = count;
         lastLatestIdRef.current = latestId;
@@ -140,13 +158,13 @@ export function useNewOrderAlert({
       const latestChanged = latestId && latestId !== lastLatestIdRef.current;
 
       if (countDiff > 0 || (latestChanged && count >= lastOrderCountRef.current)) {
-        playAlertSound();
+        await playAlertSequence(2);
         onNewOrdersRef.current(Math.max(1, countDiff), latestCode);
         lastOrderCountRef.current = count;
         lastLatestIdRef.current = latestId;
       }
     } catch {
-      // Silencioso em falhas de rede
+      // silencioso
     }
   }, []);
 

@@ -13,25 +13,21 @@ interface NewOrderPopupProps {
 export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPopupProps) {
   const originalTitle = useRef<string>('');
 
-  // Pisca o título da aba do navegador para chamar atenção mesmo fora da janela
+  // Pisca o título da aba do navegador — permanece até o admin fechar
   useEffect(() => {
     originalTitle.current = document.title;
     let blink = false;
     const interval = setInterval(() => {
       document.title = blink ? `🔔 NOVO PEDIDO #${latestCode}!` : originalTitle.current;
       blink = !blink;
-    }, 800);
+    }, 700);
     return () => {
       clearInterval(interval);
       document.title = originalTitle.current;
     };
   }, [latestCode]);
 
-  // Auto-fecha após 12 segundos
-  useEffect(() => {
-    const t = setTimeout(onClose, 12000);
-    return () => clearTimeout(t);
-  }, [onClose]);
+  // SEM auto-close — o admin deve fechar manualmente para não perder o alerta
 
   return (
     <div
@@ -187,16 +183,8 @@ export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPo
         </button>
       </div>
 
-      {/* Barra de progresso */}
-      <div style={{ height: '5px', background: 'var(--bg-tertiary, #2a2a3e)' }}>
-        <div
-          style={{
-            height: '100%',
-            background: 'linear-gradient(90deg, #dc2626, #f87171)',
-            animation: 'progressShrink 12s linear forwards',
-          }}
-        />
-      </div>
+      {/* Rodapé — sem barra de progresso pois não fecha automaticamente */}
+      <div style={{ height: '4px', background: 'linear-gradient(90deg, #dc2626, #f87171)' }} />
     </div>
   );
 }
