@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect } from 'react';
-import { ShoppingBag, X } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { ShoppingBag, X, Bell } from 'lucide-react';
 
 interface NewOrderPopupProps {
   count: number;
@@ -11,9 +11,25 @@ interface NewOrderPopupProps {
 }
 
 export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPopupProps) {
-  // Auto-fecha apos 8 segundos
+  const originalTitle = useRef<string>('');
+
+  // Pisca o título da aba do navegador para chamar atenção mesmo fora da janela
   useEffect(() => {
-    const t = setTimeout(onClose, 8000);
+    originalTitle.current = document.title;
+    let blink = false;
+    const interval = setInterval(() => {
+      document.title = blink ? `🔔 NOVO PEDIDO #${latestCode}!` : originalTitle.current;
+      blink = !blink;
+    }, 800);
+    return () => {
+      clearInterval(interval);
+      document.title = originalTitle.current;
+    };
+  }, [latestCode]);
+
+  // Auto-fecha após 12 segundos
+  useEffect(() => {
+    const t = setTimeout(onClose, 12000);
     return () => clearTimeout(t);
   }, [onClose]);
 
@@ -27,12 +43,12 @@ export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPo
         display: 'flex',
         flexDirection: 'column',
         gap: '0',
-        maxWidth: '340px',
+        maxWidth: '360px',
         width: '100%',
-        borderRadius: '14px',
+        borderRadius: '16px',
         overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(124,58,237,0.15)',
-        animation: 'slideInRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        boxShadow: '0 0 0 3px #ef4444, 0 12px 40px rgba(239,68,68,0.4), 0 4px 16px rgba(0,0,0,0.3)',
+        animation: 'slideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}
     >
       <style>{`
@@ -42,44 +58,70 @@ export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPo
         }
         @keyframes progressShrink {
           from { width: 100%; }
-          to   { width: 0%; }
+          to   { width: 0%;   }
+        }
+        @keyframes pulseRing {
+          0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+          70%  { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+          100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+        }
+        @keyframes bellShake {
+          0%,100% { transform: rotate(0deg); }
+          15%      { transform: rotate(18deg); }
+          30%      { transform: rotate(-16deg); }
+          45%      { transform: rotate(14deg); }
+          60%      { transform: rotate(-10deg); }
+          75%      { transform: rotate(6deg); }
         }
       `}</style>
 
-      {/* Header roxo */}
+      {/* Header vermelho urgente */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-          padding: '1rem 1rem 0.75rem',
+          background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+          padding: '1.1rem 1rem 0.9rem',
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
           gap: '0.75rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Ícone pulsante */}
           <div
             style={{
               background: 'rgba(255,255,255,0.2)',
               borderRadius: '50%',
-              width: '38px',
-              height: '38px',
+              width: '44px',
+              height: '44px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
+              animation: 'pulseRing 1.2s infinite',
             }}
           >
-            <ShoppingBag size={20} color="#fff" />
+            <Bell
+              size={22}
+              color="#fff"
+              style={{ animation: 'bellShake 0.6s ease-in-out infinite' }}
+            />
           </div>
           <div>
-            <p style={{ color: '#ede9fe', fontSize: '0.72rem', margin: 0, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              Novo pedido recebido!
+            <p style={{
+              color: '#fecaca',
+              fontSize: '0.7rem',
+              margin: 0,
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}>
+              ⚡ Pedido novo chegou!
             </p>
-            <p style={{ color: '#ffffff', fontSize: '1.05rem', fontWeight: 800, margin: '0.1rem 0 0' }}>
+            <p style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: 900, margin: '0.1rem 0 0' }}>
               #{latestCode}
               {count > 1 && (
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, marginLeft: '0.4rem', opacity: 0.85 }}>
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, marginLeft: '0.4rem', opacity: 0.85 }}>
                   (+{count - 1} mais)
                 </span>
               )}
@@ -90,18 +132,17 @@ export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPo
         <button
           onClick={onClose}
           style={{
-            background: 'rgba(255,255,255,0.15)',
+            background: 'rgba(255,255,255,0.2)',
             border: 'none',
             borderRadius: '50%',
-            width: '28px',
-            height: '28px',
+            width: '30px',
+            height: '30px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
             color: '#fff',
-            transition: 'background 0.15s',
           }}
           aria-label="Fechar"
         >
@@ -113,46 +154,46 @@ export function NewOrderPopup({ count, latestCode, onClose, onView }: NewOrderPo
       <div
         style={{
           background: 'var(--bg-secondary, #1e1e2e)',
-          padding: '0.9rem 1rem',
+          padding: '1rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.6rem',
+          gap: '0.75rem',
         }}
       >
-        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary, #a1a1b5)', lineHeight: 1.4 }}>
-          Um cliente acabou de realizar um pedido. Acesse o painel para confirmar e iniciar a preparacao!
+        <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary, #a1a1b5)', lineHeight: 1.45 }}>
+          Um cliente acabou de realizar um pedido. Confirme e inicie a preparacao o quanto antes!
         </p>
         <button
           onClick={onView}
           style={{
-            background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
             border: 'none',
-            borderRadius: '8px',
-            padding: '0.6rem 1rem',
+            borderRadius: '10px',
+            padding: '0.75rem 1rem',
             color: '#fff',
-            fontWeight: 700,
-            fontSize: '0.88rem',
+            fontWeight: 800,
+            fontSize: '0.95rem',
             cursor: 'pointer',
             width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '0.4rem',
-            transition: 'opacity 0.15s',
+            gap: '0.5rem',
+            letterSpacing: '0.02em',
           }}
         >
-          <ShoppingBag size={15} />
-          Ver Pedidos Agora
+          <ShoppingBag size={17} />
+          Ver Pedido Agora
         </button>
       </div>
 
-      {/* Barra de progresso animada */}
-      <div style={{ height: '4px', background: 'var(--bg-tertiary, #2a2a3e)' }}>
+      {/* Barra de progresso */}
+      <div style={{ height: '5px', background: 'var(--bg-tertiary, #2a2a3e)' }}>
         <div
           style={{
             height: '100%',
-            background: 'linear-gradient(90deg, #7c3aed, #a78bfa)',
-            animation: 'progressShrink 8s linear forwards',
+            background: 'linear-gradient(90deg, #dc2626, #f87171)',
+            animation: 'progressShrink 12s linear forwards',
           }}
         />
       </div>

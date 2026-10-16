@@ -4,8 +4,7 @@ import { useEffect, useCallback, useRef } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useNewOrderAlert
-// Hook que monitora novos pedidos via polling (fallback quando Supabase
-// Realtime nao esta disponivel no cliente) e dispara callback com som + popup.
+// Hook que monitora novos pedidos via polling e dispara som + popup no admin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface NewOrderAlertOptions {
@@ -13,7 +12,7 @@ export interface NewOrderAlertOptions {
   pollingIntervalMs?: number;
   /** Callback chamado quando chegam novos pedidos */
   onNewOrders: (count: number, latestCode: string) => void;
-  /** Se false, nao faz polling (usado para desabilitar na pagina errada) */
+  /** Se false, nao faz polling */
   enabled?: boolean;
 }
 
@@ -36,34 +35,60 @@ function getUnlockedAudioContext(): AudioContext | null {
   }
 }
 
-// Toca som de sino / campainha de pedido ("ding-dong!")
+/**
+ * Toca um tom via Web Audio API.
+ * type: 'sine' | 'square' | 'sawtooth' | 'triangle'
+ */
+function playTone(
+  ctx: AudioContext,
+  freq: number,
+  startOffset: number,
+  duration: number,
+  vol = 0.8,
+  type: OscillatorType = 'sine',
+) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
+
+  gain.gain.setValueAtTime(0.001, ctx.currentTime + startOffset);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startOffset + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startOffset + duration);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(ctx.currentTime + startOffset);
+  osc.stop(ctx.currentTime + startOffset + duration + 0.02);
+}
+
+/**
+ * Toca uma sequência de alerta estilo "campainha de caixa" — grave, forte e
+ * repete 2 vezes com 700ms de intervalo.
+ */
 export function playAlertSound() {
   try {
     const ctx = getUnlockedAudioContext();
     if (!ctx) return;
 
-    const playTone = (freq: number, startOffset: number, duration: number, vol = 0.6) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
-
-      gain.gain.setValueAtTime(vol, ctx.currentTime + startOffset);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startOffset + duration);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(ctx.currentTime + startOffset);
-      osc.stop(ctx.currentTime + startOffset + duration);
+    const playSequence = (timeOffset: number) => {
+      // Nota 1: DÓ grave — 261 Hz, sine, forte
+      playTone(ctx, 261, timeOffset + 0.00, 0.30, 1.0, 'sine');
+      // Nota 2: MI — 329 Hz, sine
+      playTone(ctx, 329, timeOffset + 0.22, 0.28, 0.95, 'sine');
+      // Nota 3: SOL — 392 Hz, sine, mais longa
+      playTone(ctx, 392, timeOffset + 0.42, 0.45, 1.0, 'sine');
+      // Nota 4: DÓ agudo — 523 Hz, resonância final
+      playTone(ctx, 523, timeOffset + 0.75, 0.55, 0.90, 'sine');
     };
 
-    // Tríade brilhante e audível: 784Hz -> 1046Hz -> 1318Hz
-    playTone(784, 0, 0.22, 0.7);
-    playTone(1046, 0.18, 0.3, 0.75);
-    playTone(1318, 0.4, 0.55, 0.8);
+    // Toca 2 vezes — 1ª imediata, 2ª após 1.6s
+    playSequence(0);
+    playSequence(1.6);
   } catch (err) {
-    console.warn('Erro ao tocar som:', err);
+    console.warn('Erro ao tocar som de alerta:', err);
   }
 }
 
@@ -104,7 +129,7 @@ export function useNewOrderAlert({
       const latestId = latestOrder?.id || null;
       const latestCode = latestOrder?.order_code || '';
 
-      // Inicializacao: apenas salva baseline sem alertar
+      // Inicialização: salva baseline sem alertar
       if (lastOrderCountRef.current === null) {
         lastOrderCountRef.current = count;
         lastLatestIdRef.current = latestId;
@@ -127,10 +152,7 @@ export function useNewOrderAlert({
 
   useEffect(() => {
     if (!enabled) return;
-
-    // Inicializa
     checkOrders();
-
     const interval = setInterval(checkOrders, pollingIntervalMs);
     return () => clearInterval(interval);
   }, [enabled, checkOrders, pollingIntervalMs]);

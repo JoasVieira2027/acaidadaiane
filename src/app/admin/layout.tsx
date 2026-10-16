@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useNewOrderAlert({
     enabled: isAuthenticated === true && pathname !== '/admin/login',
     onNewOrders: handleNewOrders,
-    pollingIntervalMs: 15000,
+    pollingIntervalMs: 8000,
   });
 
   if (pathname === '/admin/login') {
