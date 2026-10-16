@@ -52,12 +52,14 @@ export const metadata: Metadata = {
       { url: '/logo.png', sizes: '180x180', type: 'image/png' },
     ],
   },
+  manifest: '/manifest.json',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  themeColor: '#7c3aed',
 };
 
 export default function RootLayout({
@@ -67,12 +69,33 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/* PWA: permite iOS adicionar à tela inicial com suporte a push */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Açaí Daiane" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+      </head>
       <body>
         <ThemeProvider>
           <LanguageProvider>
             <CartProvider>{children}</CartProvider>
           </LanguageProvider>
         </ThemeProvider>
+        {/* Registro do Service Worker - deve ser inline para rodar antes de qualquer React */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                    console.warn('SW registration failed:', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

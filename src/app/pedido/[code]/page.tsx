@@ -17,6 +17,8 @@ import {
   CheckCircle,
   RefreshCw,
   Lock,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/lib/types';
 import { generateWhatsAppOrderMessage, getWhatsAppShareUrl } from '@/lib/whatsapp';
@@ -85,6 +87,83 @@ export default function OrderTrackingPage({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const autoOpenedWhatsAppRef = React.useRef(false);
+
+  // ── Push Notifications ──
+  type PushState = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported';
+  const [pushState, setPushState] = useState<PushState>('idle');
+
+  // Verifica se já está inscrito ao carregar a página
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushState('unsupported');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      setPushState('denied');
+      return;
+    }
+    // Se já foi concedida, verifica se já tem subscription ativa
+    if (Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then((reg) =>
+        reg.pushManager.getSubscription()
+      ).then((sub) => {
+        if (sub) setPushState('subscribed');
+      }).catch(() => {});
+    }
+  }, []);
+
+  const handleSubscribePush = async () => {
+    if (!code) return;
+    setPushState('loading');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushState('denied');
+        return;
+      }
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+      if (!vapidKey) {
+        console.warn('VAPID public key não configurada.');
+        setPushState('unsupported');
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+
+      // Remove subscription antiga se existir, para garantir chaves frescas
+      const existingSub = await reg.pushManager.getSubscription();
+      if (existingSub) await existingSub.unsubscribe();
+
+      const urlBase64ToUint8Array = (base64: string) => {
+        const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+        const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(b64);
+        return new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
+      };
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      const subJson = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderCode: code, subscription: subJson }),
+      });
+
+      if (res.ok) {
+        setPushState('subscribed');
+      } else {
+        setPushState('idle');
+      }
+    } catch (err) {
+      console.error('Erro ao inscrever push:', err);
+      setPushState(Notification.permission === 'denied' ? 'denied' : 'idle');
+    }
+  };
 
   // Resolução da Promise do Next.js 15 em background
   useEffect(() => {
@@ -383,7 +462,90 @@ export default function OrderTrackingPage({
           </div>
 
           {/* Integração Pix (se selecionado e aguardando pagamento) */}
+          {/* Notificações Push — aparece para pedidos ativos */}
+          {order.order_status !== 'completed' && order.order_status !== 'cancelled' && pushState !== 'unsupported' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+                padding: '0.85rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '1rem',
+                border: '1.5px solid',
+                ...(pushState === 'subscribed'
+                  ? { backgroundColor: '#f0fdf4', borderColor: '#86efac' }
+                  : pushState === 'denied'
+                  ? { backgroundColor: '#fff7ed', borderColor: '#fdba74' }
+                  : { backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--brand-primary)' }),
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1 }}>
+                {pushState === 'subscribed' ? (
+                  <Bell size={20} color="#16a34a" />
+                ) : pushState === 'denied' ? (
+                  <BellOff size={20} color="#ea580c" />
+                ) : (
+                  <Bell size={20} color="var(--brand-primary)" />
+                )}
+                <div>
+                  {pushState === 'subscribed' ? (
+                    <>
+                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#15803d', display: 'block' }}>
+                        Notificações ativadas!
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: '#166534' }}>
+                        Você receberá alertas a cada atualização do pedido.
+                      </span>
+                    </>
+                  ) : pushState === 'denied' ? (
+                    <>
+                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#c2410c', display: 'block' }}>
+                        Notificações bloqueadas
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: '#9a3412' }}>
+                        Permita nas configurações do navegador para receber alertas.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', display: 'block' }}>
+                        Ativar notificações do pedido
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Receba alertas quando seu açaí estiver pronto ou saiu para entrega!
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              {pushState !== 'subscribed' && pushState !== 'denied' && (
+                <button
+                  type="button"
+                  onClick={handleSubscribePush}
+                  disabled={pushState === 'loading'}
+                  className="btn btn-primary btn-sm"
+                  style={{ flexShrink: 0, fontSize: '0.82rem', padding: '0.45rem 0.9rem' }}
+                >
+                  {pushState === 'loading' ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <RefreshCw size={14} className="animate-spin" />
+                      Ativando...
+                    </span>
+                  ) : (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <Bell size={14} />
+                      Ativar
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+
           {order.payment_method === 'pix' && (
+
             <div
               style={{
                 backgroundColor: 'var(--bg-tertiary)',
