@@ -57,14 +57,16 @@ export async function POST(req: NextRequest) {
     // 3. Recalcular e validar itens contra o banco de dados
     // IMPORTANTE: Quando Supabase estiver configurado, os preços DEVEM vir do banco de dados.
     // Nunca usamos dados mockados para validação de preços em pedidos reais.
-    let allProducts: Product[];
-    let allOptionGroups: OptionGroup[];
+    let allProducts: Product[] = [];
+    let allOptionGroups: OptionGroup[] = [];
+    const optionMap = new Map<string, any>();
 
     if (isSupabaseAdminConfigured()) {
       const supabase = createSupabaseAdminClient()!;
-      const [prodRes, grpRes] = await Promise.all([
+      const [prodRes, grpRes, optsRes] = await Promise.all([
         supabase.from('products').select('*').eq('is_available', true),
-        supabase.from('option_groups').select('*, options(*)').eq('is_active', true),
+        supabase.from('option_groups').select('*, options(*)'),
+        supabase.from('options').select('*'),
       ]);
 
       if (prodRes.error) {
@@ -77,16 +79,32 @@ export async function POST(req: NextRequest) {
 
       allProducts = prodRes.data || [];
       allOptionGroups = grpRes.data || [];
-    } else {
-      // Modo de desenvolvimento local sem Supabase configurado
-      allProducts = await repository.getProducts();
-      allOptionGroups = await repository.getOptionGroups();
+
+      // Mapear opções diretas da tabela options
+      if (optsRes.data && Array.isArray(optsRes.data)) {
+        optsRes.data.forEach((opt: any) => {
+          optionMap.set(opt.id, opt);
+        });
+      }
+
+      // Mapear opções aninhadas nos grupos
+      allOptionGroups.forEach((g) => {
+        (g as any).options?.forEach((opt: any) => {
+          optionMap.set(opt.id, { ...opt, group_name: g.name });
+        });
+      });
     }
 
-    const optionMap = new Map();
-    allOptionGroups.forEach((g) => {
+    // Se o banco estiver vazio ou sem produtos/grupos, carregar do repository como fallback
+    if (allProducts.length === 0) {
+      allProducts = await repository.getProducts();
+    }
+    const mockGroups = await repository.getOptionGroups();
+    mockGroups.forEach((g) => {
       (g as any).options?.forEach((opt: any) => {
-        optionMap.set(opt.id, { ...opt, group_name: g.name });
+        if (!optionMap.has(opt.id)) {
+          optionMap.set(opt.id, { ...opt, group_name: g.name });
+        }
       });
     });
 
@@ -110,9 +128,37 @@ export async function POST(req: NextRequest) {
       }
 
       // Preço unitário base oficial do banco (considera preço promocional se ativo)
-      const baseUnitPrice = dbProduct.is_promo_active && dbProduct.promotional_price
+      let baseUnitPrice = dbProduct.is_promo_active && dbProduct.promotional_price
         ? Number(dbProduct.promotional_price)
         : Number(dbProduct.price);
+
+      // Se o cliente escolheu um tamanho e o produto possui tamanhos cadastrados
+      const sizeOptReq = (rawItem.selected_options || []).find(
+        (o: any) =>
+          o.group_name === 'TAMANHO' ||
+          o.group_id === 'size-group' ||
+          String(o.option_id).startsWith('size-')
+      );
+
+      if (sizeOptReq && Array.isArray(dbProduct.sizes) && dbProduct.sizes.length > 0) {
+        const matchedSize = dbProduct.sizes.find(
+          (s) => s.label === sizeOptReq.option_name || `size-${s.label}` === sizeOptReq.option_id
+        );
+        if (matchedSize) {
+          const hasSizePromo = Boolean(
+            dbProduct.promo_applies_to_sizes && dbProduct.is_promo_active && dbProduct.promo_percent
+          );
+          if (hasSizePromo && matchedSize.promo_price != null && Number(matchedSize.promo_price) > 0) {
+            baseUnitPrice = Number(matchedSize.promo_price);
+          } else if (hasSizePromo && dbProduct.promo_percent) {
+            baseUnitPrice = Number(
+              (Number(matchedSize.price) * (1 - Number(dbProduct.promo_percent) / 100)).toFixed(2)
+            );
+          } else {
+            baseUnitPrice = Number(matchedSize.price);
+          }
+        }
+      }
 
       // Validar e calcular adicionais/opções selecionadas
       let optionsTotalPerItem = 0;
@@ -120,15 +166,43 @@ export async function POST(req: NextRequest) {
 
       if (rawItem.selected_options && Array.isArray(rawItem.selected_options)) {
         for (const optReq of rawItem.selected_options) {
-          const dbOpt = optionMap.get(optReq.option_id);
+          // Opção de tamanho é tratada separadamente no baseUnitPrice
+          const isSize =
+            optReq.group_name === 'TAMANHO' ||
+            optReq.group_id === 'size-group' ||
+            String(optReq.option_id).startsWith('size-');
+
+          if (isSize) {
+            validatedSelectedOptions.push({
+              option_id: optReq.option_id,
+              group_id: 'size-group',
+              group_name: 'TAMANHO',
+              option_name: optReq.option_name,
+              price: 0,
+              quantity: 1,
+            });
+            continue;
+          }
+
+          let dbOpt = optionMap.get(optReq.option_id);
+          // Fallback por nome se o ID não bater
+          if (!dbOpt && optReq.option_name) {
+            for (const item of optionMap.values()) {
+              if (item.name?.trim().toLowerCase() === optReq.option_name?.trim().toLowerCase()) {
+                dbOpt = item;
+                break;
+              }
+            }
+          }
+
           if (!dbOpt) {
             return NextResponse.json(
-              { success: false, message: `Opção de complemento inválida selecionada.` },
+              { success: false, message: `Opção de complemento "${optReq.option_name || optReq.option_id}" não encontrada.` },
               { status: 400 }
             );
           }
 
-          if (!dbOpt.is_available) {
+          if (dbOpt.is_available === false) {
             return NextResponse.json(
               { success: false, message: `O adicional "${dbOpt.name}" está temporariamente indisponível.` },
               { status: 400 }
@@ -141,7 +215,7 @@ export async function POST(req: NextRequest) {
 
           validatedSelectedOptions.push({
             option_id: dbOpt.id,
-            group_id: dbOpt.group_id,
+            group_id: dbOpt.group_id || 'opcao',
             group_name: dbOpt.group_name || 'Opção',
             option_name: dbOpt.name,
             price: optPrice,
