@@ -12,13 +12,18 @@ export const VAPID_PUBLIC =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC;
 export const VAPID_PRIVATE =
   process.env.VAPID_PRIVATE_KEY || DEFAULT_VAPID_PRIVATE;
-export const VAPID_EMAIL =
-  process.env.VAPID_EMAIL || DEFAULT_VAPID_EMAIL;
+
+// Garante o prefixo "mailto:" exigido pela spec do web-push
+const rawEmail = process.env.VAPID_EMAIL || DEFAULT_VAPID_EMAIL;
+export const VAPID_EMAIL = rawEmail.startsWith('mailto:') || rawEmail.startsWith('https://')
+  ? rawEmail
+  : `mailto:${rawEmail}`;
 
 let vapidConfigured = false;
 try {
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
   vapidConfigured = true;
+  console.log('[Push] VAPID configurado:', VAPID_EMAIL, '| Public key:', VAPID_PUBLIC.slice(0, 16) + '...');
 } catch (e) {
   console.error('[Push] Erro ao configurar VAPID:', e);
 }
