@@ -4,7 +4,7 @@
 // Arquivo: /public/sw.js
 // ============================================================
 
-const CACHE_NAME = 'acaidaiane-v1';
+const CACHE_NAME = 'acaidaiane-v2';
 
 // ──────────────────────────────────────────────────────────────
 // EVENTO: push — recebido mesmo com o site fechado
@@ -24,6 +24,11 @@ self.addEventListener('push', (event) => {
     badge: '/icon.png',
     tag: data.tag || 'pedido-update',
     renotify: true,
+    // Som e vibração — suportado em Android Chrome/Edge
+    silent: false,
+    vibrate: [300, 100, 300, 100, 600],
+    // Mantém a notificação na tela até o usuário interagir
+    requireInteraction: true,
     data: {
       orderCode: data.orderCode || '',
       url: data.url || '/',

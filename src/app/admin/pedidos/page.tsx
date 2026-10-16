@@ -15,8 +15,10 @@ import {
   ChevronDown,
   Trash2,
   Ban,
+  MessageSquare,
 } from 'lucide-react';
 import { Order, OrderStatus, PaymentStatus } from '@/lib/types';
+import { getWhatsAppShareUrl } from '@/lib/whatsapp';
 import { initialOrders } from '@/lib/data/mockData';
 
 const paymentMethodLabels: Record<string, string> = {
@@ -34,6 +36,33 @@ const statusLabels: Record<OrderStatus, { label: string; badge: string }> = {
   completed: { label: 'Concluído', badge: 'badge-success' },
   cancelled: { label: 'Cancelado', badge: 'badge-danger' },
 };
+
+// Gera mensagem profissional de "Saiu para Entrega" para o WhatsApp do cliente
+function generateDeliveryWhatsAppMessage(order: Order): string {
+  const lines: string[] = [];
+  lines.push(`Olá, *${order.customer_name}*! 🛵`);
+  lines.push('');
+  lines.push(`Boa notícia! O seu pedido *#${order.order_code}* do *Açaí da Daiane* acabou de sair para entrega e logo chegará até você!`);
+  lines.push('');
+  if (order.order_type === 'delivery') {
+    lines.push(`📍 *Endereço de Entrega:*`);
+    lines.push(`${order.address_street || ''}, nº ${order.address_number || 'S/N'}${order.address_complement ? ` – ${order.address_complement}` : ''}`);
+    lines.push(`Bairro: ${order.neighborhood_name || ''}`);
+    if (order.address_reference) lines.push(`Referência: ${order.address_reference}`);
+    lines.push('');
+  }
+  lines.push(`💜 *Resumo do Pedido:*`);
+  if (order.items && order.items.length > 0) {
+    order.items.forEach((item) => {
+      lines.push(`  • ${item.quantity || 1}x ${item.product_name}`);
+    });
+  }
+  lines.push(``);
+  lines.push(`💰 *Total:* R$ ${order.total_amount.toFixed(2)}`);
+  lines.push(``);
+  lines.push(`Obrigado pela preferência! Qualquer dúvida, estamos aqui. 🍇`);
+  return lines.join('\n');
+}
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
@@ -59,6 +88,14 @@ export default function AdminOrdersPage() {
     const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
+
+  const handleWhatsAppDelivery = (order: Order) => {
+    const msg = generateDeliveryWhatsAppMessage(order);
+    const cleanPhone = order.customer_phone.replace(/\D/g, '');
+    const phone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    const url = getWhatsAppShareUrl(phone, msg);
+    window.open(url, '_blank');
+  };
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
@@ -320,7 +357,29 @@ export default function AdminOrdersPage() {
                         </select>
                       </td>
                       <td style={{ padding: '1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                          {order.order_status === 'out_for_delivery' && (
+                            <button
+                              type="button"
+                              onClick={() => handleWhatsAppDelivery(order)}
+                              className="btn btn-sm"
+                              style={{
+                                backgroundColor: '#22c55e',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '0.35rem 0.6rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                                fontWeight: 700,
+                                fontSize: '0.75rem',
+                              }}
+                              title="Avisar cliente no WhatsApp que saiu para entrega"
+                            >
+                              <MessageSquare size={13} />
+                              WhatsApp
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setSelectedOrder(order)}
@@ -496,6 +555,31 @@ export default function AdminOrdersPage() {
                 </div>
 
                 {/* Linha 5: Ações do Pedido */}
+                {/* Botão WhatsApp Entrega — aparece só quando saiu para entrega */}
+                {order.order_status === 'out_for_delivery' && (
+                  <button
+                    type="button"
+                    onClick={() => handleWhatsAppDelivery(order)}
+                    className="btn btn-sm"
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#22c55e',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '0.65rem',
+                      fontWeight: 700,
+                      fontSize: '0.88rem',
+                      borderRadius: 'var(--radius-md)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <MessageSquare size={16} />
+                    Avisar no WhatsApp — Saiu para Entrega 🛵
+                  </button>
+                )}
                 <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.2rem', alignItems: 'center' }}>
                   <button
                     type="button"
@@ -701,6 +785,53 @@ export default function AdminOrdersPage() {
                 <span>Total:</span>
                 <span style={{ color: 'var(--brand-primary)' }}>R$ {selectedOrder.total_amount.toFixed(2)}</span>
               </div>
+
+              {/* Botão WhatsApp — Avisar cliente que saiu para entrega */}
+              {selectedOrder.order_status === 'out_for_delivery' && (
+                <div
+                  style={{
+                    backgroundColor: '#f0fdf4',
+                    border: '1.5px solid #86efac',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <MessageSquare size={18} color="#16a34a" />
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#15803d' }}>
+                      Pedido saiu para entrega!
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: '#166534', margin: 0 }}>
+                    Envie uma mensagem profissional avisando o cliente que o pedido já está a caminho.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleWhatsAppDelivery(selectedOrder)}
+                    style={{
+                      backgroundColor: '#22c55e',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.7rem 1rem',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      width: '100%',
+                    }}
+                  >
+                    <MessageSquare size={16} />
+                    Avisar {selectedOrder.customer_name} no WhatsApp 🛵
+                  </button>
+                </div>
+              )}
 
               {/* Botões operacionais de Cancelar e Excluir */}
               <div
