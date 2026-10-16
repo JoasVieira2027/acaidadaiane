@@ -13,7 +13,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { orderCode, subscription } = body;
 
-    if (!orderCode || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+    const cleanCode = orderCode ? String(orderCode).trim().toUpperCase() : '';
+
+    if (!cleanCode || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
       return NextResponse.json(
         { success: false, message: 'Dados de inscrição incompletos.' },
         { status: 400 }
@@ -27,26 +29,12 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient()!;
 
-    // Verifica se o order_code existe para evitar inscrições órfãs
-    const { data: order } = await supabase
-      .from('orders')
-      .select('order_code')
-      .eq('order_code', orderCode)
-      .single();
-
-    if (!order) {
-      return NextResponse.json(
-        { success: false, message: 'Pedido não encontrado.' },
-        { status: 404 }
-      );
-    }
-
     // Upsert: insere ou atualiza se já existir o mesmo endpoint para o pedido
     const { error } = await supabase
       .from('order_push_subscriptions')
       .upsert(
         {
-          order_code: orderCode,
+          order_code: cleanCode,
           endpoint: subscription.endpoint,
           p256dh: subscription.keys.p256dh,
           auth: subscription.keys.auth,
@@ -60,6 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Erro ao salvar inscrição.' }, { status: 500 });
     }
 
+    console.log(`[Subscribe] Inscrição registrada para pedido ${cleanCode}`);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('POST /api/push/subscribe error:', error);
@@ -89,7 +78,7 @@ export async function DELETE(req: NextRequest) {
     await supabase
       .from('order_push_subscriptions')
       .delete()
-      .eq('order_code', orderCode)
+      .eq('order_code', String(orderCode).trim().toUpperCase())
       .eq('endpoint', endpoint);
 
     return NextResponse.json({ success: true });

@@ -22,16 +22,12 @@ self.addEventListener('push', (event) => {
     body: data.body || 'Seu pedido foi atualizado.',
     icon: data.icon || '/icon.png',
     badge: '/icon.png',
-    tag: data.tag || 'pedido-update',           // tag evita duplicação no SO
-    renotify: true,                              // renotifica mesma tag com novidade
+    tag: data.tag || 'pedido-update',
+    renotify: true,
     data: {
       orderCode: data.orderCode || '',
       url: data.url || '/',
     },
-    actions: data.orderCode
-      ? [{ action: 'open', title: 'Ver Pedido' }]
-      : [],
-    vibrate: [200, 100, 200],
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

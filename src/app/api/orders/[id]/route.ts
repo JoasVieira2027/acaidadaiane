@@ -68,12 +68,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await repository.updateOrderStatus(order.id, order_status);
       order.order_status = order_status;
 
-      // Dispara push notification para o cliente (in-process, seguro)
-      import('@/lib/push')
-        .then(({ sendOrderStatusPush }) => sendOrderStatusPush(order.order_code, order_status))
-        .catch((pushErr) => {
-          console.warn('Push send falhou (não crítico):', pushErr?.message || pushErr);
-        });
+      // Dispara push notification para o cliente (aguarda envio para evitar congelamento no Vercel serverless)
+      try {
+        const { sendOrderStatusPush } = await import('@/lib/push');
+        await sendOrderStatusPush(order.order_code, order_status);
+      } catch (pushErr) {
+        console.warn('Push send falhou (não crítico):', pushErr);
+      }
     }
 
     if (payment_status) {

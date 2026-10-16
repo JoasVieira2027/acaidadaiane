@@ -1,4 +1,4 @@
-﻿import webpush from 'web-push';
+import webpush from 'web-push';
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
 
 export const DEFAULT_VAPID_PUBLIC =
@@ -56,6 +56,8 @@ const statusMessages: Record<string, { title: string; body: string }> = {
 export async function sendOrderStatusPush(orderCode: string, status: string) {
   if (!orderCode || !status) return { success: false, reason: 'missing-params' };
 
+  const cleanCode = String(orderCode).trim().toUpperCase();
+
   if (!isSupabaseAdminConfigured()) {
     console.warn('[Push] Supabase admin não configurado.');
     return { success: true, sent: 0, reason: 'supabase-not-configured' };
@@ -66,20 +68,21 @@ export async function sendOrderStatusPush(orderCode: string, status: string) {
   const { data: subs, error } = await supabase
     .from('order_push_subscriptions')
     .select('*')
-    .eq('order_code', orderCode);
+    .ilike('order_code', cleanCode);
 
   if (error) {
-    console.error('[Push] Erro ao buscar inscrições:', error);
+    console.error('[Push] Erro ao buscar inscrições para', cleanCode, error);
     return { success: false, reason: 'db-error' };
   }
 
   if (!subs || subs.length === 0) {
+    console.log('[Push] Nenhuma inscrição encontrada para o pedido', cleanCode);
     return { success: true, sent: 0, reason: 'no-subscribers' };
   }
 
   const notification = statusMessages[status] || {
     title: 'Atualização no seu pedido! 🔔',
-    body: `Seu pedido ${orderCode} foi atualizado.`,
+    body: `Seu pedido ${cleanCode} foi atualizado.`,
   };
 
   const payload = JSON.stringify({
@@ -87,9 +90,9 @@ export async function sendOrderStatusPush(orderCode: string, status: string) {
     body: notification.body,
     icon: '/icon.png',
     badge: '/icon.png',
-    tag: `pedido-${orderCode}`,
-    orderCode,
-    url: `/pedido/${orderCode}`,
+    tag: `pedido-${cleanCode}`,
+    orderCode: cleanCode,
+    url: `/pedido/${cleanCode}`,
   });
 
   const expiredEndpoints: string[] = [];
@@ -102,13 +105,17 @@ export async function sendOrderStatusPush(orderCode: string, status: string) {
         keys: { p256dh: sub.p256dh, auth: sub.auth },
       };
       try {
-        await webpush.sendNotification(pushSub, payload, { TTL: 86400 });
+        await webpush.sendNotification(pushSub, payload, {
+          TTL: 86400,
+          urgency: 'high',
+        });
         sent++;
+        console.log('[Push] Notificação enviada com sucesso para endpoint:', sub.endpoint.slice(0, 35) + '...');
       } catch (err: any) {
         if (err.statusCode === 410 || err.statusCode === 404) {
           expiredEndpoints.push(sub.endpoint);
         } else {
-          console.error(`[Push] Erro ao enviar para ${sub.endpoint}:`, err.message || err);
+          console.error(`[Push] Erro ao enviar para ${sub.endpoint.slice(0, 35)}...:`, err.message || err);
         }
       }
     })
