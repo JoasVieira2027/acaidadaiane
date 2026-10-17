@@ -197,3 +197,34 @@ export async function getPaymentStatus(paymentId: string): Promise<{
     return null;
   }
 }
+
+/**
+ * Cancela um pagamento pendente no Mercado Pago (invalida a cobrança Pix)
+ */
+export async function cancelPayment(paymentId: string): Promise<boolean> {
+  const token = getMpAccessToken();
+  if (!token || !paymentId || paymentId.startsWith('SIM-PIX-')) {
+    return true;
+  }
+
+  try {
+    const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status: 'cancelled' }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.warn(`[MercadoPago] Não foi possível cancelar o pagamento ${paymentId}:`, err);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Erro ao cancelar cobrança no Mercado Pago:', err);
+    return false;
+  }
+}

@@ -19,6 +19,7 @@ import {
   Lock,
   Bell,
   BellOff,
+  AlertCircle,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/lib/types';
 import { generateWhatsAppOrderMessage, getWhatsAppShareUrl } from '@/lib/whatsapp';
@@ -247,15 +248,18 @@ export default function OrderTrackingPage({
 
     fetchOrder();
 
-    // Atualiza com maior frequência (5s) enquanto o Pix estiver pendente
-    const isWaitingPix = order?.payment_method === 'pix' && order?.payment_status === 'pending';
+    // Atualiza com maior frequência (5s) enquanto o Pix estiver pendente e o pedido não estiver cancelado
+    const isWaitingPix =
+      order?.payment_method === 'pix' &&
+      order?.payment_status === 'pending' &&
+      order?.order_status !== 'cancelled';
     const intervalMs = isWaitingPix ? 5000 : 15000;
 
     const interval = setInterval(() => {
       fetchOrder();
     }, intervalMs);
     return () => clearInterval(interval);
-  }, [code, fetchOrder, order?.payment_method, order?.payment_status]);
+  }, [code, fetchOrder, order?.payment_method, order?.payment_status, order?.order_status]);
 
   // Garante que o QR code seja gerado e exibido com segurança
   useEffect(() => {
@@ -393,7 +397,11 @@ export default function OrderTrackingPage({
     );
   }
 
-  const isPixPending = order.payment_method === 'pix' && order.payment_status !== 'paid';
+  const isOrderCancelled = order.order_status === 'cancelled' || order.payment_status === 'cancelled';
+  const isPixPending =
+    order.payment_method === 'pix' &&
+    order.payment_status === 'pending' &&
+    !isOrderCancelled;
   const currentStepIndex = statusSteps.findIndex((s) => s.key === order.order_status);
 
   return (
@@ -583,7 +591,6 @@ export default function OrderTrackingPage({
           )}
 
           {order.payment_method === 'pix' && (
-
             <div
               style={{
                 backgroundColor: 'var(--bg-tertiary)',
@@ -599,14 +606,47 @@ export default function OrderTrackingPage({
                 </h3>
                 <span
                   className={`badge ${
-                    order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'
+                    isOrderCancelled
+                      ? 'badge-danger'
+                      : order.payment_status === 'paid'
+                      ? 'badge-success'
+                      : 'badge-warning'
                   }`}
                 >
-                  {order.payment_status === 'paid' ? 'Pix Aprovado' : 'Aguardando Pagamento'}
+                  {isOrderCancelled
+                    ? 'Pedido / Pix Cancelado'
+                    : order.payment_status === 'paid'
+                    ? 'Pix Aprovado'
+                    : 'Aguardando Pagamento'}
                 </span>
               </div>
 
-              {order.payment_status === 'paid' ? (
+              {isOrderCancelled ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.75rem',
+                    color: '#b91c1c',
+                    backgroundColor: '#fee2e2',
+                    padding: '1rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid #fca5a5',
+                  }}
+                >
+                  <AlertCircle size={22} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, display: 'block' }}>
+                      Cobrança Pix Cancelada
+                    </span>
+                    <span style={{ fontSize: '0.85rem', lineHeight: '1.4', display: 'block', marginTop: '0.2rem' }}>
+                      {order.payment_status === 'paid'
+                        ? 'Este pedido foi cancelado após o recebimento. Entre em contato com a loja para reembolso ou orientações.'
+                        : 'Este pedido foi cancelado e a cobrança Pix foi desativada. O QR Code e a chave Copia e Cola não estão mais disponíveis para pagamento.'}
+                    </span>
+                  </div>
+                </div>
+              ) : order.payment_status === 'paid' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#16a34a', backgroundColor: '#dcfce7', padding: '0.9rem', borderRadius: 'var(--radius-sm)' }}>
                   <CheckCircle2 size={22} />
                   <div>
@@ -771,7 +811,7 @@ export default function OrderTrackingPage({
                   </span>
                 </div>
               </div>
-            ) : order.order_status === 'cancelled' ? (
+            ) : isOrderCancelled ? (
               <div
                 style={{
                   width: '100%',
@@ -792,7 +832,7 @@ export default function OrderTrackingPage({
                     Pedido Cancelado
                   </span>
                   <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>
-                    Entre em contato conosco se tiver dúvidas.
+                    Este pedido foi cancelado. Entre em contato conosco pelo WhatsApp se tiver dúvidas.
                   </span>
                 </div>
               </div>

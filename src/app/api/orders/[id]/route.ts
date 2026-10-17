@@ -68,6 +68,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await repository.updateOrderStatus(order.id, order_status);
       order.order_status = order_status;
 
+      // Se o pedido foi cancelado e era Pix pendente, cancela também o status de pagamento e a cobrança no Mercado Pago
+      if (order_status === 'cancelled') {
+        if (order.payment_method === 'pix' && order.payment_status === 'pending') {
+          await repository.updatePaymentStatus(order.id, 'cancelled');
+          order.payment_status = 'cancelled';
+
+          const txId = order.payment_details?.transaction_id;
+          if (txId) {
+            const { cancelPayment } = await import('@/lib/mercadopago');
+            await cancelPayment(txId).catch((e) => console.warn('Erro ao cancelar Pix no MP:', e));
+          }
+        }
+      }
+
       // Dispara push notification para o cliente (aguarda envio para evitar congelamento no Vercel serverless)
       try {
         const { sendOrderStatusPush } = await import('@/lib/push');
@@ -84,6 +98,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       await repository.updatePaymentStatus(order.id, payment_status);
       order.payment_status = payment_status;
+
+      if (payment_status === 'cancelled' && order.payment_method === 'pix') {
+        const txId = order.payment_details?.transaction_id;
+        if (txId) {
+          const { cancelPayment } = await import('@/lib/mercadopago');
+          await cancelPayment(txId).catch((e) => console.warn('Erro ao cancelar Pix no MP:', e));
+        }
+      }
     }
 
     return NextResponse.json({ success: true, order }, { headers: noStoreHeaders });
