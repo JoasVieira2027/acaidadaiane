@@ -36,7 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setIsAuthenticated(true);
     } else {
       setIsAuthenticated(false);
-      router.replace('/admin/login');
+      router.replace('/');
     }
   }, [pathname, router]);
 

@@ -381,8 +381,17 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get('acai_admin_session')?.value;
+    const { isValidSessionToken } = await import('@/lib/auth/admin-auth');
+    if (!isValidSessionToken(sessionCookie)) {
+      return NextResponse.json(
+        { success: false, message: 'Acesso restrito aos administradores.' },
+        { status: 401 }
+      );
+    }
+
     const orders = await repository.getOrders();
     return NextResponse.json({
       success: true,

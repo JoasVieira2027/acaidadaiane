@@ -56,11 +56,15 @@ export function AdminSidebar() {
       .catch(() => {});
   }, [pathname]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST' });
+    } catch {}
     localStorage.removeItem('acai_admin_auth');
     localStorage.removeItem('acai_admin_email');
     document.cookie = 'acai_admin_session=; path=/; max-age=0';
-    router.replace('/admin/login');
+    document.cookie = 'acai_admin_gate=; path=/; max-age=0';
+    router.replace('/');
   };
 
   const activeItem = menuItems.find((item) => pathname === item.href);

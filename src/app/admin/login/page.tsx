@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Shield, Lock, Mail, ArrowLeft, AlertCircle } from 'lucide-react';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -19,34 +18,29 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-
-      if (supabase) {
-        const { error } = await supabase.auth.signInWithPassword({
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           email: email.trim(),
           password: password.trim(),
-        });
+        }),
+      });
 
-        if (error) {
-          setErrorMsg('Credenciais inválidas no Supabase Auth. Verifique seu e-mail e senha.');
-          setLoading(false);
-          return;
-        }
-      } else {
-        // Validação local quando Supabase ainda não estiver conectado no ambiente local
-        if (password.trim().length < 6) {
-          setErrorMsg('A senha administrativa deve ter no mínimo 6 caracteres.');
-          setLoading(false);
-          return;
-        }
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setErrorMsg(data.message || 'Credenciais inválidas. Verifique seu e-mail e senha.');
+        setLoading(false);
+        return;
       }
 
-      // Salva sessão autenticada
+      // Salva sessão local para os componentes client-side
       localStorage.setItem('acai_admin_auth', 'true');
-      localStorage.setItem('acai_admin_email', email.trim());
-      document.cookie = 'acai_admin_session=1; path=/; max-age=86400; SameSite=Lax';
+      localStorage.setItem('acai_admin_email', data.email || email.trim());
 
       router.push('/admin');
+      router.refresh();
     } catch {
       setErrorMsg('Erro ao autenticar. Tente novamente.');
       setLoading(false);
@@ -91,7 +85,7 @@ export default function AdminLoginPage() {
           </div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Acesso Administrativo</h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Painel de controle Açaí Daiane
+            Área restrita de gestão — Açaí Daiane
           </p>
         </div>
 
@@ -172,7 +166,7 @@ export default function AdminLoginPage() {
             className="btn btn-primary btn-lg"
             style={{ width: '100%', marginTop: '0.5rem' }}
           >
-            {loading ? 'Entrando...' : 'Entrar no Painel'}
+            {loading ? 'Validando acesso...' : 'Entrar no Painel'}
           </button>
         </form>
 
@@ -188,7 +182,7 @@ export default function AdminLoginPage() {
             }}
           >
             <ArrowLeft size={14} />
-            <span>Voltar ao Cardápio Público</span>
+            <span>Voltar ao Cardápio</span>
           </Link>
         </div>
       </div>
