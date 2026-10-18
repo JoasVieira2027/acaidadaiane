@@ -377,43 +377,59 @@ export async function POST(req: NextRequest) {
     // C9: Se o Pix falhar, EXCLUÍMOS o pedido para evitar estados inconsistentes.
     // O cliente pode tentar novamente — a idempotência do MP impede cobranças duplicadas.
     if (payment_method === 'pix') {
-      const pixResult = await createPixPayment({
-        orderId: createdOrder.id,
-        orderCode: createdOrder.order_code,
-        amount: createdOrder.total_amount,
-        description: `Pedido ${createdOrder.order_code} - Acai Daiane`,
-        customerName: createdOrder.customer_name,
-        customerPhone: createdOrder.customer_phone,
-      });
+      try {
+        const pixResult = await createPixPayment({
+          orderId: createdOrder.id,
+          orderCode: createdOrder.order_code,
+          amount: createdOrder.total_amount,
+          description: `Pedido ${createdOrder.order_code} - Acai Daiane`,
+          customerName: createdOrder.customer_name,
+          customerPhone: createdOrder.customer_phone,
+        });
 
-      if (!pixResult.success) {
-        // C9: Remove o pedido zumbi do banco para permitir nova tentativa limpa
+        if (!pixResult.success) {
+          // Remove o pedido rascunho para permitir nova tentativa sem duplicata
+          try {
+            await repository.deleteOrder(createdOrder.id);
+          } catch (delErr) {
+            console.error('Falha ao remover pedido apos erro Pix:', delErr);
+          }
+          return NextResponse.json(
+            {
+              success: false,
+              message: pixResult.errorMessage || 'Não foi possível gerar a cobrança Pix. Tente novamente ou escolha outra forma de pagamento.',
+            },
+            { status: 400 }
+          );
+        }
+
+        await repository.updatePaymentStatus(createdOrder.id, 'pending', {
+          transaction_id: pixResult.paymentId,
+          pix_copia_e_cola: pixResult.qrCode,
+          qr_code_base64: pixResult.qrCodeBase64,
+          payment_link: pixResult.ticketUrl,
+        });
+        createdOrder.payment_details = {
+          transaction_id: pixResult.paymentId,
+          pix_copia_e_cola: pixResult.qrCode,
+          qr_code_base64: pixResult.qrCodeBase64,
+          payment_link: pixResult.ticketUrl,
+        };
+      } catch (pixErr: any) {
+        console.error('Exceção ou timeout ao gerar Pix no gateway:', pixErr?.message || pixErr);
         try {
           await repository.deleteOrder(createdOrder.id);
         } catch (delErr) {
-          console.error('Falha ao remover pedido apos erro Pix:', delErr);
+          console.error('Falha ao remover pedido após timeout Pix:', delErr);
         }
         return NextResponse.json(
           {
             success: false,
-            message: pixResult.errorMessage || 'Nao foi possivel gerar a cobranca Pix. Tente novamente ou escolha outra forma de pagamento.',
+            message: 'O serviço de pagamentos demorou a responder. Por favor, tente novamente.',
           },
-          { status: 400 }
+          { status: 504 }
         );
       }
-
-      await repository.updatePaymentStatus(createdOrder.id, 'pending', {
-        transaction_id: pixResult.paymentId,
-        pix_copia_e_cola: pixResult.qrCode,
-        qr_code_base64: pixResult.qrCodeBase64,
-        payment_link: pixResult.ticketUrl,
-      });
-      createdOrder.payment_details = {
-        transaction_id: pixResult.paymentId,
-        pix_copia_e_cola: pixResult.qrCode,
-        qr_code_base64: pixResult.qrCodeBase64,
-        payment_link: pixResult.ticketUrl,
-      };
     }
 
     return NextResponse.json({

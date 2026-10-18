@@ -3,15 +3,13 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supa
 
 export const DEFAULT_VAPID_PUBLIC =
   'BC80XQI3kOyCt90jFpSzgEIcZcno_-gosPpcPyY87Y-2gnHDiJSB6ESMhnAdyOufxEvJjV8eWD8McxxayZpveZc';
-export const DEFAULT_VAPID_PRIVATE =
-  'W02U8YL1L2zppae_ZsIvDf2HnB7VAjk3vPdHBsnJiqE';
 export const DEFAULT_VAPID_EMAIL =
   'mailto:contato@acaidadaiane.com.br';
 
 export const VAPID_PUBLIC =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC;
 export const VAPID_PRIVATE =
-  process.env.VAPID_PRIVATE_KEY || DEFAULT_VAPID_PRIVATE;
+  process.env.VAPID_PRIVATE_KEY || '';
 
 // Garante o prefixo "mailto:" exigido pela spec do web-push
 const rawEmail = process.env.VAPID_EMAIL || DEFAULT_VAPID_EMAIL;
@@ -19,13 +17,18 @@ export const VAPID_EMAIL = rawEmail.startsWith('mailto:') || rawEmail.startsWith
   ? rawEmail
   : `mailto:${rawEmail}`;
 
-let vapidConfigured = false;
-try {
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
-  vapidConfigured = true;
-  console.log('[Push] VAPID configurado:', VAPID_EMAIL, '| Public key:', VAPID_PUBLIC.slice(0, 16) + '...');
-} catch (e) {
-  console.error('[Push] Erro ao configurar VAPID:', e);
+export let vapidConfigured = false;
+if (VAPID_PUBLIC && VAPID_PRIVATE && VAPID_PRIVATE.trim().length > 10) {
+  try {
+    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
+    vapidConfigured = true;
+    console.log('[Push] VAPID configurado:', VAPID_EMAIL, '| Public key:', VAPID_PUBLIC.slice(0, 16) + '...');
+  } catch (e) {
+    console.error('[Push] Erro ao configurar VAPID:', e);
+    vapidConfigured = false;
+  }
+} else {
+  console.warn('[Push] VAPID_PRIVATE_KEY ausente ou inválida. Notificações push estão desativadas por segurança.');
 }
 
 const statusMessages: Record<string, { title: string; body: string }> = {
@@ -60,6 +63,11 @@ const statusMessages: Record<string, { title: string; body: string }> = {
  */
 export async function sendOrderStatusPush(orderCode: string, status: string) {
   if (!orderCode || !status) return { success: false, reason: 'missing-params' };
+
+  if (!vapidConfigured) {
+    console.warn('[Push] VAPID não configurado. Disparo ignorado com segurança.');
+    return { success: true, sent: 0, reason: 'vapid-not-configured' };
+  }
 
   const cleanCode = String(orderCode).trim().toUpperCase();
 

@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
 import { sendOrderStatusPush, VAPID_PUBLIC, VAPID_EMAIL } from '@/lib/push';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/push/debug?code=AD-1001&send=1
- * Diagnóstico completo do sistema de push notifications.
+ * Diagnóstico completo do sistema de push notifications (REQUER AUTENTICACAO ADMIN).
  */
 export async function GET(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code') || '';
   const sendTest = searchParams.get('send') === '1';

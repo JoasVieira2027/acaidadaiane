@@ -4,17 +4,18 @@ import {
   ADMIN_COOKIE_NAME,
   ADMIN_GATE_COOKIE,
   getAdminAccessKey,
-  isValidSessionToken,
+  isValidSessionTokenAsync,
+  timingSafeEqualStr,
 } from '@/lib/auth/admin-auth';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Interceptar apenas rotas /admin e subrotas
   if (pathname.startsWith('/admin')) {
     const sessionCookie = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
     const gateCookie = request.cookies.get(ADMIN_GATE_COOKIE)?.value;
-    const isAuthenticated = isValidSessionToken(sessionCookie);
+    const isAuthenticated = await isValidSessionTokenAsync(sessionCookie);
 
     // Verificar se uma chave secreta foi fornecida na URL (?key=... ou ?acesso=... ou ?secret=...)
     const providedKey =
@@ -23,8 +24,13 @@ export function middleware(request: NextRequest) {
       searchParams.get('secret') ||
       '';
 
-    const secretKey = getAdminAccessKey();
-    const hasValidKey = providedKey && providedKey.trim() === secretKey.trim();
+    let hasValidKey = false;
+    try {
+      const secretKey = getAdminAccessKey();
+      hasValidKey = Boolean(providedKey && timingSafeEqualStr(providedKey.trim(), secretKey.trim()));
+    } catch {
+      hasValidKey = false;
+    }
 
     // 1. Se forneceu a chave secreta válida na URL
     if (hasValidKey) {

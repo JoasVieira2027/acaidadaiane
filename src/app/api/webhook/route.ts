@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { repository } from '@/lib/data/repository';
 import { getPaymentStatus } from '@/lib/mercadopago';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
@@ -15,27 +15,25 @@ const STATUS_RANK: Record<string, number> = {
   cancelled: 5,
 };
 
+import { timingSafeEqualStr } from '@/lib/auth/admin-auth';
+
 /**
  * Verifica a assinatura HMAC-SHA256 da notificacao do Mercado Pago.
  * Documentacao: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
  * Header: x-signature -> ts=<timestamp>,v1=<hmac_sha256>
  */
 async function verifyMpSignature(req: NextRequest, rawBody: string): Promise<boolean> {
-  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret) {
-    // Se o segredo nao estiver configurado, logamos aviso mas NAO bloqueamos
-    // para nao quebrar notificacoes em ambientes sem a var configurada ainda.
-    console.warn('[Webhook] MERCADO_PAGO_WEBHOOK_SECRET nao configurado — assinatura nao verificada.');
-    return true;
-  }
-
   const xSignature = req.headers.get('x-signature') || '';
   const xRequestId = req.headers.get('x-request-id') || '';
-  const url = new URL(req.url);
-  const dataId = url.searchParams.get('data.id') || '';
 
   if (!xSignature) {
     console.warn('[Webhook] Notificacao sem header x-signature — rejeitando.');
+    return false;
+  }
+
+  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET || process.env.MP_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn('[Webhook] Notificação com x-signature recebida mas MERCADO_PAGO_WEBHOOK_SECRET não configurado.');
     return false;
   }
 
@@ -56,6 +54,18 @@ async function verifyMpSignature(req: NextRequest, rawBody: string): Promise<boo
     return false;
   }
 
+  const url = new URL(req.url);
+  let bodyData: any = {};
+  try {
+    if (rawBody) bodyData = JSON.parse(rawBody);
+  } catch {}
+
+  const dataId =
+    url.searchParams.get('data.id') ||
+    url.searchParams.get('id') ||
+    bodyData?.data?.id ||
+    String(bodyData?.id || '');
+
   // Monta o template de assinatura conforme documentacao do MP
   const template = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
 
@@ -73,7 +83,7 @@ async function verifyMpSignature(req: NextRequest, rawBody: string): Promise<boo
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    if (sigHex !== v1) {
+    if (!timingSafeEqualStr(sigHex.toLowerCase(), v1.toLowerCase())) {
       console.warn('[Webhook] Assinatura HMAC invalida — notificacao rejeitada.');
       return false;
     }
@@ -140,7 +150,7 @@ export async function POST(req: NextRequest) {
           if (supabase) {
             const { data } = await supabase
               .from('orders')
-              .select('id, order_code, order_status, payment_status, payment_method, payment_details')
+              .select('id, order_code, order_status, payment_status, payment_method, total_amount, payment_details')
               .contains('payment_details', { transaction_id: String(effectiveId) })
               .maybeSingle();
             if (data) matchedOrder = data;
@@ -155,6 +165,14 @@ export async function POST(req: NextRequest) {
 
           if (matchedOrder) {
             if (paymentInfo.status === 'approved') {
+              // Validacao de valor: valor pago no MP nao pode ser inferior ao valor do pedido
+              const paidAmount = Number(paymentInfo.transactionAmount || 0);
+              const orderAmount = Number(matchedOrder.total_amount || 0);
+              if (orderAmount > 0 && paidAmount > 0 && paidAmount < orderAmount - 0.05) {
+                console.error(`[Webhook] Valor divergente: pago R$ ${paidAmount}, esperado R$ ${orderAmount}`);
+                return NextResponse.json({ received: true, error: 'amount_mismatch' });
+              }
+
               // Idempotencia: so avanca para 'preparing' se o pagamento ainda nao foi processado
               if (matchedOrder.payment_status !== 'paid') {
                 await repository.updatePaymentStatus(matchedOrder.id, 'paid', {
