@@ -225,7 +225,15 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const itemQty = Math.max(1, parseInt(rawItem.quantity || 1, 10));
+      // C12: Valida quantidade positiva e limite máximo razoável
+      const itemQtyRaw = parseInt(rawItem.quantity || 1, 10);
+      if (isNaN(itemQtyRaw) || itemQtyRaw < 1) {
+        return NextResponse.json(
+          { success: false, message: `Quantidade inválida para o produto "${dbProduct.name}".` },
+          { status: 400 }
+        );
+      }
+      const itemQty = Math.min(itemQtyRaw, 50); // máximo 50 unidades por item
       const itemUnitPrice = Number((baseUnitPrice + optionsTotalPerItem).toFixed(2));
       const itemTotalPrice = Number((itemUnitPrice * itemQty).toFixed(2));
       calculatedSubtotal += itemTotalPrice;
@@ -286,24 +294,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Validação de Cupom de Desconto
+    // 5. Validação de Cupom de Desconto (C10: inclui validação de datas)
     let calculatedDiscount = 0;
     let validCouponCode = null;
 
     if (coupon_code) {
       const coupon = await repository.getCouponByCode(coupon_code);
       if (coupon && coupon.is_active) {
+        const now = new Date();
+        // C10: Verifica período de validade do cupom
+        const afterStart = !coupon.start_date || new Date(coupon.start_date) <= now;
+        const beforeEnd = !coupon.end_date || new Date(coupon.end_date) >= now;
         const meetsMin = !coupon.min_order_amount || calculatedSubtotal >= coupon.min_order_amount;
-        const withinUses = !coupon.max_uses || coupon.used_count < coupon.max_uses;
+        const withinUses = !coupon.max_uses || (coupon.used_count || 0) < coupon.max_uses;
 
-        if (meetsMin && withinUses) {
-          validCouponCode = coupon.code;
-          if (coupon.discount_type === 'percentage') {
-            calculatedDiscount = Number(((calculatedSubtotal * coupon.discount_value) / 100).toFixed(2));
-          } else {
-            calculatedDiscount = Math.min(Number(coupon.discount_value), calculatedSubtotal);
-          }
+        if (!afterStart || !beforeEnd) {
+          return NextResponse.json(
+            { success: false, message: `O cupom "${coupon.code}" está fora do período de validade.` },
+            { status: 400 }
+          );
         }
+        if (!withinUses) {
+          return NextResponse.json(
+            { success: false, message: `O cupom "${coupon.code}" atingiu o limite máximo de usos.` },
+            { status: 400 }
+          );
+        }
+        if (!meetsMin) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: `O cupom "${coupon.code}" exige pedido mínimo de R$ ${Number(coupon.min_order_amount).toFixed(2)}.`,
+            },
+            { status: 400 }
+          );
+        }
+
+        validCouponCode = coupon.code;
+        if (coupon.discount_type === 'percentage') {
+          // Garante desconto não negativo e não superior ao subtotal
+          const pct = Math.max(0, Math.min(100, Number(coupon.discount_value)));
+          calculatedDiscount = Number(((calculatedSubtotal * pct) / 100).toFixed(2));
+        } else {
+          calculatedDiscount = Math.min(Math.max(0, Number(coupon.discount_value)), calculatedSubtotal);
+        }
+      } else if (coupon_code) {
+        return NextResponse.json(
+          { success: false, message: 'Cupom inválido ou inativo.' },
+          { status: 400 }
+        );
       }
     }
 
@@ -335,23 +374,29 @@ export async function POST(req: NextRequest) {
     });
 
     // 7. Se for pagamento via Pix Online, gerar cobrança no Mercado Pago
+    // C9: Se o Pix falhar, EXCLUÍMOS o pedido para evitar estados inconsistentes.
+    // O cliente pode tentar novamente — a idempotência do MP impede cobranças duplicadas.
     if (payment_method === 'pix') {
       const pixResult = await createPixPayment({
         orderId: createdOrder.id,
         orderCode: createdOrder.order_code,
         amount: createdOrder.total_amount,
-        description: `Pedido ${createdOrder.order_code} - Açaí Daiane`,
+        description: `Pedido ${createdOrder.order_code} - Acai Daiane`,
         customerName: createdOrder.customer_name,
         customerPhone: createdOrder.customer_phone,
       });
 
       if (!pixResult.success) {
-        console.error('Falha ao gerar cobrança Pix:', pixResult.errorMessage);
-        await repository.updatePaymentStatus(createdOrder.id, 'failed');
+        // C9: Remove o pedido zumbi do banco para permitir nova tentativa limpa
+        try {
+          await repository.deleteOrder(createdOrder.id);
+        } catch (delErr) {
+          console.error('Falha ao remover pedido apos erro Pix:', delErr);
+        }
         return NextResponse.json(
           {
             success: false,
-            message: pixResult.errorMessage || 'Não foi possível gerar a cobrança Pix no momento. Verifique as credenciais ou selecione outra forma de pagamento.',
+            message: pixResult.errorMessage || 'Nao foi possivel gerar a cobranca Pix. Tente novamente ou escolha outra forma de pagamento.',
           },
           { status: 400 }
         );

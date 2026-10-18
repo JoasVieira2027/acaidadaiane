@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,7 +12,7 @@ const noStoreHeaders = {
   'Vercel-CDN-Cache-Control': 'no-store',
 };
 
-// GET /api/products — lista todos os produtos com grupos de complementos
+// GET /api/products — lista todos os produtos com grupos de complementos (público para o cardápio)
 export async function GET() {
   try {
     const [products, categories, optionGroups] = await Promise.all([
@@ -20,7 +21,6 @@ export async function GET() {
       repository.getOptionGroups(),
     ]);
 
-    // Buscar associações produto <-> grupo se Supabase estiver configurado
     const { createSupabaseAdminClient } = await import('@/lib/supabase/admin');
     const supabase = createSupabaseAdminClient();
 
@@ -33,7 +33,6 @@ export async function GET() {
       if (data) associations = data;
     }
 
-    // Montar produtos com seus grupos
     const productsWithGroups = products.map((p) => {
       let groups = p.option_groups || [];
       if (supabase && associations.length > 0) {
@@ -66,8 +65,11 @@ export async function GET() {
   }
 }
 
-// POST /api/products — criar ou atualizar produto
+// POST /api/products — criar ou atualizar produto (REQUER AUTENTICAÇÃO ADMIN)
 export async function POST(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
 
@@ -109,10 +111,8 @@ export async function POST(req: NextRequest) {
     const supabase = createSupabaseAdminClient();
 
     if (supabase && Array.isArray(option_group_ids)) {
-      // Remove associações antigas deste produto
       await supabase.from('product_option_groups').delete().eq('product_id', saved.id);
 
-      // Insere novas associações
       if (option_group_ids.length > 0) {
         const rows = option_group_ids.map((gid: string, idx: number) => ({
           product_id: saved.id,
@@ -147,8 +147,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/products?id=xxx
+// DELETE /api/products?id=xxx (REQUER AUTENTICAÇÃO ADMIN)
 export async function DELETE(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

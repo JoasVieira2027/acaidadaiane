@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/products/upload-image
-// Body: FormData com campo "file" (image) e "productId" (opcional)
+// POST /api/products/upload-image (REQUER AUTENTICACAO ADMIN)
 export async function POST(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -79,8 +82,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/products/upload-image?path=products/xxx.jpg
+// DELETE /api/products/upload-image?path=products/xxx.jpg (REQUER AUTENTICACAO ADMIN)
 export async function DELETE(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const path = searchParams.get('path');

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { repository } from '@/lib/data/repository';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,8 +11,11 @@ const noStoreHeaders = {
   'Vercel-CDN-Cache-Control': 'no-store',
 };
 
-// GET /api/expenses - lista todas as despesas operacionais
-export async function GET() {
+// GET /api/expenses — lista despesas operacionais (REQUER AUTENTICAÇÃO ADMIN)
+export async function GET(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const expenses = await repository.getExpenses();
     return NextResponse.json({ success: true, expenses }, { headers: noStoreHeaders });
@@ -21,8 +25,11 @@ export async function GET() {
   }
 }
 
-// POST /api/expenses - cadastra ou atualiza uma despesa
+// POST /api/expenses — cadastra ou atualiza uma despesa (REQUER AUTENTICAÇÃO ADMIN)
 export async function POST(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
     const { expense } = body;
@@ -42,8 +49,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/expenses?id=... - remove uma despesa
+// DELETE /api/expenses?id=... (REQUER AUTENTICAÇÃO ADMIN)
 export async function DELETE(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

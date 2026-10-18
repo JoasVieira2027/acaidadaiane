@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,7 +12,11 @@ const noStoreHeaders = {
   'Vercel-CDN-Cache-Control': 'no-store',
 };
 
-export async function GET() {
+// GET /api/coupons — lista cupons (REQUER AUTENTICAÇÃO ADMIN — dados financeiros)
+export async function GET(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const coupons = await repository.getCoupons();
     return NextResponse.json({ success: true, coupons }, { headers: noStoreHeaders });
@@ -21,7 +26,11 @@ export async function GET() {
   }
 }
 
+// POST /api/coupons — criar/atualizar cupom (REQUER AUTENTICAÇÃO ADMIN)
 export async function POST(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
     const { coupon } = body;
@@ -43,7 +52,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// DELETE /api/coupons?id=xxx (REQUER AUTENTICAÇÃO ADMIN)
 export async function DELETE(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

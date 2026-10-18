@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,6 +12,7 @@ const noStoreHeaders = {
   'Vercel-CDN-Cache-Control': 'no-store',
 };
 
+// GET público: necessário para o cardápio verificar se a loja está aberta
 export async function GET() {
   try {
     const status = await repository.getStoreStatus();
@@ -35,9 +37,13 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+// POST requer admin — apenas administradores podem alterar configurações e horários
+export async function POST(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
-    const body = await request.json();
+    const body = await req.json();
 
     let settingsToUpdate: any = null;
     if (body.settings) {

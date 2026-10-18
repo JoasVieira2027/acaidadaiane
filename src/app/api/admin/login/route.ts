@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
   ADMIN_COOKIE_NAME,
   ADMIN_GATE_COOKIE,
   generateSessionToken,
   getAdminMasterPassword,
-  getAdminAccessKey,
 } from '@/lib/auth/admin-auth';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 
@@ -14,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, accessKey } = body;
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -25,15 +24,6 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim();
     const cleanPassword = password.trim();
-
-    // Se uma chave de acesso opcional foi enviada no formulário de login, pode validar também
-    const configuredKey = getAdminAccessKey();
-    if (accessKey && accessKey.trim() !== configuredKey.trim()) {
-      return NextResponse.json(
-        { success: false, message: 'Chave de segurança administrativa incorreta.' },
-        { status: 401 }
-      );
-    }
 
     let authenticated = false;
     let authError = '';
@@ -60,11 +50,15 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // 2. Fallback de contingência local quando Supabase não estiver configurado
-      const masterPassword = getAdminMasterPassword();
-      if (cleanPassword === masterPassword || cleanPassword === configuredKey) {
-        authenticated = true;
-      } else {
-        authError = 'Senha mestre administrativa incorreta.';
+      try {
+        const masterPassword = getAdminMasterPassword();
+        if (cleanPassword === masterPassword) {
+          authenticated = true;
+        } else {
+          authError = 'Senha mestre administrativa incorreta.';
+        }
+      } catch (envErr: any) {
+        authError = envErr.message || 'Configuração de autenticação ausente no servidor.';
       }
     }
 
@@ -78,8 +72,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Sucesso: gerar token e gravar cookies de sessão
-    const sessionToken = generateSessionToken(cleanEmail);
+    // 3. Sucesso: gerar token HMAC-SHA256 e gravar cookies de sessão seguros
+    const sessionToken = await generateSessionToken(cleanEmail);
 
     const response = NextResponse.json({
       success: true,
@@ -87,25 +81,32 @@ export async function POST(req: NextRequest) {
       message: 'Autenticado com sucesso.',
     });
 
-    // Cookie de sessão principal (24 horas)
+    // Detecta HTTPS para ativar flag secure
+    const isHttps =
+      req.headers.get('x-forwarded-proto') === 'https' ||
+      req.url.startsWith('https://');
+
+    // Cookie de sessão principal (24 horas) — httpOnly: JS do browser não consegue ler
     response.cookies.set(ADMIN_COOKIE_NAME, sessionToken, {
       path: '/',
-      httpOnly: false, // Acessível pelo Next.js middleware e pelo client
+      httpOnly: true,
+      secure: isHttps,
       sameSite: 'lax',
-      maxAge: 86400, // 24 horas
+      maxAge: 86400,
     });
 
     // Cookie de liberação do portão
     response.cookies.set(ADMIN_GATE_COOKIE, 'authorized', {
       path: '/',
       httpOnly: true,
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: 86400,
     });
 
     return response;
   } catch (error: any) {
-    console.error('Erro no login administrativo:', error);
+    console.error('Erro no login administrativo:', error.message);
     return NextResponse.json(
       { success: false, message: 'Erro interno ao validar credenciais.' },
       { status: 500 }

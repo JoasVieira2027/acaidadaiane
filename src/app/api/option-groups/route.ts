@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { repository } from '@/lib/data/repository';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,8 +23,11 @@ export async function GET() {
   }
 }
 
-// POST /api/option-groups — cria ou atualiza um grupo ou opção
+// POST /api/option-groups — cria ou atualiza um grupo ou opção (REQUER AUTENTICACAO ADMIN)
 export async function POST(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const body = await req.json();
 
@@ -153,9 +157,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/option-groups?id=xxx — remove o grupo
+// DELETE /api/option-groups?id=xxx — remove o grupo (REQUER AUTENTICACAO ADMIN)
 export async function DELETE(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {

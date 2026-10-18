@@ -1,10 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { repository } from '@/lib/data/repository';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 
+// GET /api/orders/by-phone — busca pedidos por telefone (REQUER AUTENTICACAO ADMIN)
+// Clientes usam a pagina /meus-pedidos que consulta por order_code, nao por telefone em massa
 export async function GET(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const rawPhone = searchParams.get('phone') || '';
@@ -12,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     if (!cleanPhone || cleanPhone.length < 8) {
       return NextResponse.json(
-        { success: false, message: 'Telefone inválido. Informe pelo menos 8 dígitos.' },
+        { success: false, message: 'Telefone invalido. Informe pelo menos 8 digitos.' },
         { status: 400 }
       );
     }
@@ -20,7 +26,6 @@ export async function GET(req: NextRequest) {
     const supabase = createSupabaseAdminClient();
 
     if (supabase) {
-      // Busca por sufixo: compara os últimos 9 ou 11 dígitos para tolerar DDD e +55
       const { data, error } = await supabase
         .from('orders')
         .select('*, items:order_items(*)')
@@ -30,10 +35,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: false, message: 'Erro ao buscar pedidos.' }, { status: 500 });
       }
 
-      // Filtra no lado do servidor: compara sufixos para tolerar diferentes formatos de telefone
       const orders = (data || []).filter((o: any) => {
         const stored = (o.customer_phone || '').replace(/\D/g, '');
-        // Compara os últimos 9 dígitos (número sem DDD) para máxima compatibilidade
         const searchSuffix = cleanPhone.slice(-9);
         const storedSuffix = stored.slice(-9);
         return searchSuffix === storedSuffix;
@@ -42,7 +45,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, orders });
     }
 
-    // Fallback in-memory
     const allOrders = await repository.getOrders();
     const orders = allOrders.filter((o) => {
       const stored = (o.customer_phone || '').replace(/\D/g, '');
