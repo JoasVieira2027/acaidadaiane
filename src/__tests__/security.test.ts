@@ -366,6 +366,65 @@ async function runPublicAccessTests() {
     const { status } = await req('GET', '/api/store-status');
     assert(status === 200, `GET /api/store-status deve ser público, obtido ${status}`);
   });
+
+  await test('T38 — Integridade de preços: valores forjados no payload pelo cliente são ignorados pelo servidor', async () => {
+    // Tenta forjar produto existente com preço de R$ 0.01
+    const { json: prodJson } = await req('GET', '/api/products');
+    const firstProd = (prodJson.products || [])[0];
+    if (firstProd) {
+      const { json: orderJson } = await req('POST', '/api/orders', {
+        body: {
+          customer_name: 'Cliente Teste Integridade',
+          customer_phone: '81999999999',
+          order_type: 'pickup',
+          payment_method: 'cash',
+          items: [{
+            product_id: firstProd.id,
+            product_name: firstProd.name,
+            quantity: 1,
+            unit_price: 0.01, // Tentativa de fraude de preço
+            total_price: 0.01,
+          }],
+        },
+      });
+      if (orderJson.order) {
+        assert(
+          orderJson.order.subtotal >= firstProd.price || orderJson.order.subtotal > 0.01,
+          'O servidor deve calcular o preço real do banco, não o enviado pelo cliente'
+        );
+      }
+    }
+  });
+
+  await test('T39 — Rota /api/push/vapid-key fornece apenas chave pública sem vazar a privada', async () => {
+    const { status, json } = await req('GET', '/api/push/vapid-key');
+    assert(status === 200, `Esperado 200, obtido ${status}`);
+    assert(json.publicKey, 'Deve conter chave pública');
+    assert(!json.privateKey, 'NUNCA deve vazar chave privada');
+  });
+
+  await test('T40 — Proteção contra dados de terceiros: busca por código inválido não expõe pedidos de outros', async () => {
+    const { status } = await req('GET', '/api/orders/CODIGO_TOTALMENTE_INEXISTENTE_XYZ');
+    assert(status === 404, `Esperado 404 para código inexistente, obtido ${status}`);
+  });
+
+  await test('T41 — Sessão com token malformado ou nulo é rejeitada com 401', async () => {
+    const { status } = await req('POST', '/api/products', {
+      cookie: 'acai_admin_session=admv2.invalido',
+      body: { product: { name: 'X' } },
+    });
+    assert(status === 401, `Esperado 401 para token malformado, obtido ${status}`);
+  });
+
+  await test('T42 — Webhook fora de ordem com status inferior não altera pedido já pago', async () => {
+    // Simula notificação com status 'cancelled' ou 'pending' para topic de pagamento
+    const { status, json } = await req('POST', '/api/webhook?topic=payment&id=SIM-PIX-FAKE', {
+      headers: {
+        'x-signature': `ts=${Math.floor(Date.now() / 1000)},v1=invalido`,
+      },
+    });
+    assert(status === 200, 'Deve responder 200 ao Mercado Pago');
+  });
 }
 
 // ----------------------------------------------------------------

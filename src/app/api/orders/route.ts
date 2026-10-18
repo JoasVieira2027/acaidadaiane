@@ -418,14 +418,21 @@ export async function POST(req: NextRequest) {
       } catch (pixErr: any) {
         console.error('Exceção ou timeout ao gerar Pix no gateway:', pixErr?.message || pixErr);
         try {
-          await repository.deleteOrder(createdOrder.id);
-        } catch (delErr) {
-          console.error('Falha ao remover pedido após timeout Pix:', delErr);
+          // Não exclui o pedido: se o pagamento foi criado no provedor mas sofreu timeout,
+          // o webhook do Mercado Pago ainda poderá recuperá-lo ao receber confirmação de pagamento.
+          await repository.updatePaymentStatus(createdOrder.id, 'failed', {
+            failure_reason: 'gateway_timeout',
+            timed_out_at: new Date().toISOString(),
+          });
+          await repository.updateOrderStatus(createdOrder.id, 'cancelled');
+        } catch (updateErr) {
+          console.error('Falha ao atualizar status após timeout Pix:', updateErr);
         }
         return NextResponse.json(
           {
             success: false,
             message: 'O serviço de pagamentos demorou a responder. Por favor, tente novamente.',
+            order_code: createdOrder.order_code,
           },
           { status: 504 }
         );

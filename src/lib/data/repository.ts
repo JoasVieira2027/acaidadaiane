@@ -957,8 +957,14 @@ export const repository = {
             notes: 'Pedido criado',
           }]);
         }
-      } catch (err) {
+
+        if (!insertedOrder) {
+          console.error('Falha crítica ao persistir pedido no Supabase: insertedOrder é nulo.');
+          throw new Error('Falha ao registrar pedido no banco de dados. Tente novamente.');
+        }
+      } catch (err: any) {
         console.error('Erro ao persistir pedido no Supabase:', err);
+        throw err;
       }
     }
 

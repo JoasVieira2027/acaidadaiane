@@ -163,6 +163,23 @@ export async function POST(req: NextRequest) {
             );
           }
 
+          // Fallback para recuperação de pedidos que sofreram timeout durante a criação:
+          // Localiza o pedido através do external_reference (código do pedido, ex: AD-1008)
+          if (!matchedOrder && paymentInfo.externalReference) {
+            if (supabase) {
+              const { data } = await supabase
+                .from('orders')
+                .select('id, order_code, order_status, payment_status, payment_method, total_amount, payment_details')
+                .eq('order_code', paymentInfo.externalReference)
+                .maybeSingle();
+              if (data) matchedOrder = data;
+            }
+            if (!matchedOrder) {
+              const orders = await repository.getOrders();
+              matchedOrder = orders.find((o) => o.order_code === paymentInfo.externalReference);
+            }
+          }
+
           if (matchedOrder) {
             if (paymentInfo.status === 'approved') {
               // Validacao de valor: valor pago no MP nao pode ser inferior ao valor do pedido
