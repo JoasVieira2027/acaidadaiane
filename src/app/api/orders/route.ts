@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { repository } from '@/lib/data/repository';
 import { createPixPayment } from '@/lib/mercadopago';
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/auth/require-admin';
 import { OrderItem, SelectedOption, Product, OptionGroup } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -56,18 +57,20 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Recalcular e validar itens contra o banco de dados
-    // IMPORTANTE: Quando Supabase estiver configurado, os preços DEVEM vir do banco de dados.
-    // Nunca usamos dados mockados para validação de preços em pedidos reais.
+    // 3. Recalcular e validar itens contra o banco de dados
+    // IMPORTANTE: Preços e regras são estritamente validados no servidor
     let allProducts: Product[] = [];
     let allOptionGroups: OptionGroup[] = [];
     const optionMap = new Map<string, any>();
+    const groupMap = new Map<string, OptionGroup>();
 
     if (isSupabaseAdminConfigured()) {
       const supabase = createSupabaseAdminClient()!;
-      const [prodRes, grpRes, optsRes] = await Promise.all([
+      const [prodRes, grpRes, optsRes, pogRes] = await Promise.all([
         supabase.from('products').select('*').eq('is_available', true),
         supabase.from('option_groups').select('*, options(*)'),
         supabase.from('options').select('*'),
+        supabase.from('product_option_groups').select('*').order('display_order', { ascending: true }),
       ]);
 
       if (prodRes.error) {
@@ -80,6 +83,20 @@ export async function POST(req: NextRequest) {
 
       allProducts = prodRes.data || [];
       allOptionGroups = grpRes.data || [];
+      const associations = pogRes.data || [];
+
+      // Vincular grupos de opções aos produtos via product_option_groups
+      allProducts.forEach((p) => {
+        const productAssocs = associations
+          .filter((a: any) => a.product_id === p.id)
+          .sort((a: any, b: any) => a.display_order - b.display_order);
+
+        if (productAssocs.length > 0) {
+          p.option_groups = productAssocs
+            .map((a: any) => allOptionGroups.find((g) => g.id === a.option_group_id))
+            .filter(Boolean) as OptionGroup[];
+        }
+      });
 
       // Mapear opções diretas da tabela options
       if (optsRes.data && Array.isArray(optsRes.data)) {
@@ -90,6 +107,7 @@ export async function POST(req: NextRequest) {
 
       // Mapear opções aninhadas nos grupos
       allOptionGroups.forEach((g) => {
+        groupMap.set(g.id, g);
         (g as any).options?.forEach((opt: any) => {
           optionMap.set(opt.id, { ...opt, group_name: g.name });
         });
@@ -100,8 +118,11 @@ export async function POST(req: NextRequest) {
     if (allProducts.length === 0) {
       allProducts = await repository.getProducts();
     }
-    const mockGroups = await repository.getOptionGroups();
-    mockGroups.forEach((g) => {
+    if (allOptionGroups.length === 0) {
+      allOptionGroups = await repository.getOptionGroups();
+    }
+    allOptionGroups.forEach((g) => {
+      groupMap.set(g.id, g);
       (g as any).options?.forEach((opt: any) => {
         if (!optionMap.has(opt.id)) {
           optionMap.set(opt.id, { ...opt, group_name: g.name });
@@ -128,52 +149,93 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Preço unitário base oficial do banco (considera preço promocional se ativo)
-      let baseUnitPrice = dbProduct.is_promo_active && dbProduct.promotional_price
-        ? Number(dbProduct.promotional_price)
-        : Number(dbProduct.price);
-
-      // Se o cliente escolheu um tamanho e o produto possui tamanhos cadastrados
-      const sizeOptReq = (rawItem.selected_options || []).find(
-        (o: any) =>
-          o.group_name === 'TAMANHO' ||
-          o.group_id === 'size-group' ||
-          String(o.option_id).startsWith('size-')
-      );
-
-      if (sizeOptReq && Array.isArray(dbProduct.sizes) && dbProduct.sizes.length > 0) {
-        const matchedSize = dbProduct.sizes.find(
-          (s) => s.label === sizeOptReq.option_name || `size-${s.label}` === sizeOptReq.option_id
+      // Validação estrita de quantidade do produto: inteiro positivo entre 1 e 50
+      const itemQty = rawItem.quantity;
+      if (typeof itemQty !== 'number' || !Number.isInteger(itemQty) || itemQty < 1 || itemQty > 50) {
+        return NextResponse.json(
+          { success: false, message: `Quantidade inválida (${itemQty}) para o produto "${dbProduct.name}". Deve ser um número inteiro entre 1 e 50.` },
+          { status: 400 }
         );
-        if (matchedSize) {
-          const hasSizePromo = Boolean(
-            dbProduct.promo_applies_to_sizes && dbProduct.is_promo_active && dbProduct.promo_percent
-          );
-          if (hasSizePromo && matchedSize.promo_price != null && Number(matchedSize.promo_price) > 0) {
-            baseUnitPrice = Number(matchedSize.promo_price);
-          } else if (hasSizePromo && dbProduct.promo_percent) {
-            baseUnitPrice = Number(
-              (Number(matchedSize.price) * (1 - Number(dbProduct.promo_percent) / 100)).toFixed(2)
-            );
-          } else {
-            baseUnitPrice = Number(matchedSize.price);
-          }
-        }
       }
 
-      // Validar e calcular adicionais/opções selecionadas
+      // Validação de variação de tamanho
+      const hasProductSizes = Array.isArray(dbProduct.sizes) && dbProduct.sizes.length > 0;
+      const sizeOptions = (rawItem.selected_options || []).filter(
+        (o: any) =>
+          o &&
+          (o.group_name === 'TAMANHO' ||
+            o.group_id === 'size-group' ||
+            String(o.option_id || '').startsWith('size-'))
+      );
+
+      let baseUnitPrice: number;
+
+      if (hasProductSizes) {
+        if (sizeOptions.length !== 1) {
+          return NextResponse.json(
+            { success: false, message: `O produto "${dbProduct.name}" exige a seleção de exatamente 1 tamanho.` },
+            { status: 400 }
+          );
+        }
+        const sizeOptReq = sizeOptions[0];
+        const matchedSize = dbProduct.sizes!.find(
+          (s) => s.label === sizeOptReq.option_name || `size-${s.label}` === sizeOptReq.option_id
+        );
+        if (!matchedSize) {
+          return NextResponse.json(
+            { success: false, message: `Tamanho "${sizeOptReq.option_name || sizeOptReq.option_id}" inválido para o produto "${dbProduct.name}".` },
+            { status: 400 }
+          );
+        }
+        const hasSizePromo = Boolean(
+          dbProduct.promo_applies_to_sizes && dbProduct.is_promo_active && dbProduct.promo_percent
+        );
+        if (hasSizePromo && matchedSize.promo_price != null && Number(matchedSize.promo_price) > 0) {
+          baseUnitPrice = Number(matchedSize.promo_price);
+        } else if (hasSizePromo && dbProduct.promo_percent) {
+          baseUnitPrice = Number(
+            (Number(matchedSize.price) * (1 - Number(dbProduct.promo_percent) / 100)).toFixed(2)
+          );
+        } else {
+          baseUnitPrice = Number(matchedSize.price);
+        }
+      } else {
+        if (sizeOptions.length > 0) {
+          return NextResponse.json(
+            { success: false, message: `O produto "${dbProduct.name}" não aceita variação de tamanho.` },
+            { status: 400 }
+          );
+        }
+        baseUnitPrice = dbProduct.is_promo_active && dbProduct.promotional_price
+          ? Number(dbProduct.promotional_price)
+          : Number(dbProduct.price);
+      }
+
+      // Validação de grupos e complementos
+      const productGroups = dbProduct.option_groups || [];
+      const allowedGroupIds = new Set(productGroups.map((g) => g.id));
+      const groupCounts = new Map<string, number>();
+
       let optionsTotalPerItem = 0;
       const validatedSelectedOptions: SelectedOption[] = [];
 
       if (rawItem.selected_options && Array.isArray(rawItem.selected_options)) {
         for (const optReq of rawItem.selected_options) {
-          // Opção de tamanho é tratada separadamente no baseUnitPrice
+          if (!optReq) continue;
+
           const isSize =
             optReq.group_name === 'TAMANHO' ||
             optReq.group_id === 'size-group' ||
-            String(optReq.option_id).startsWith('size-');
+            String(optReq.option_id || '').startsWith('size-');
 
           if (isSize) {
+            // Tamanho já validado acima; quantidade deve ser 1
+            if (optReq.quantity !== undefined && optReq.quantity !== 1) {
+              return NextResponse.json(
+                { success: false, message: 'A quantidade de tamanho deve ser exatamente 1.' },
+                { status: 400 }
+              );
+            }
             validatedSelectedOptions.push({
               option_id: optReq.option_id,
               group_id: 'size-group',
@@ -185,8 +247,16 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          let dbOpt = optionMap.get(optReq.option_id);
-          // Fallback por nome se o ID não bater
+          // Validação estrita de quantidade de complemento: inteiro positivo
+          const optQty = optReq.quantity;
+          if (typeof optQty !== 'number' || !Number.isInteger(optQty) || optQty <= 0) {
+            return NextResponse.json(
+              { success: false, message: `Quantidade inválida (${optQty}) para a opção de complemento "${optReq.option_name || optReq.option_id}". Deve ser um número inteiro maior que zero.` },
+              { status: 400 }
+            );
+          }
+
+          let dbOpt = optReq.option_id ? optionMap.get(optReq.option_id) : null;
           if (!dbOpt && optReq.option_name) {
             for (const item of optionMap.values()) {
               if (item.name?.trim().toLowerCase() === optReq.option_name?.trim().toLowerCase()) {
@@ -198,7 +268,7 @@ export async function POST(req: NextRequest) {
 
           if (!dbOpt) {
             return NextResponse.json(
-              { success: false, message: `Opção de complemento "${optReq.option_name || optReq.option_id}" não encontrada.` },
+              { success: false, message: `Opção de complemento "${optReq.option_name || optReq.option_id}" não encontrada ou inválida.` },
               { status: 400 }
             );
           }
@@ -210,14 +280,44 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          const optQty = Number(optReq.quantity || 1);
-          const optPrice = Number(dbOpt.price || 0);
+          // Limite máximo por item da opção
+          const maxPerItem = Number(dbOpt.max_quantity_per_item) || 10;
+          if (optQty > maxPerItem) {
+            return NextResponse.json(
+              { success: false, message: `Quantidade do adicional "${dbOpt.name}" (${optQty}) excede o limite máximo permitido (${maxPerItem}).` },
+              { status: 400 }
+            );
+          }
+
+          // Confirmação de pertencimento ao grupo do produto
+          if (productGroups.length > 0 && dbOpt.group_id && !allowedGroupIds.has(dbOpt.group_id)) {
+            return NextResponse.json(
+              { success: false, message: `O complemento "${dbOpt.name}" não pertence a um grupo disponível para o produto "${dbProduct.name}".` },
+              { status: 400 }
+            );
+          }
+
+          const optGroupId = dbOpt.group_id || 'opcao';
+          const currentGrpCount = (groupCounts.get(optGroupId) || 0) + optQty;
+          groupCounts.set(optGroupId, currentGrpCount);
+
+          const grp = groupMap.get(optGroupId) || productGroups.find((g) => g.id === optGroupId);
+          if (grp && typeof grp.max_options === 'number' && grp.max_options > 0) {
+            if (currentGrpCount > grp.max_options) {
+              return NextResponse.json(
+                { success: false, message: `O grupo "${grp.name}" permite no máximo ${grp.max_options} opções selecionadas.` },
+                { status: 400 }
+              );
+            }
+          }
+
+          const optPrice = Math.max(0, Number(dbOpt.price || 0));
           optionsTotalPerItem += optPrice * optQty;
 
           validatedSelectedOptions.push({
             option_id: dbOpt.id,
-            group_id: dbOpt.group_id || 'opcao',
-            group_name: dbOpt.group_name || 'Opção',
+            group_id: optGroupId,
+            group_name: dbOpt.group_name || grp?.name || 'Opção',
             option_name: dbOpt.name,
             price: optPrice,
             quantity: optQty,
@@ -225,15 +325,27 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // C12: Valida quantidade positiva e limite máximo razoável
-      const itemQtyRaw = parseInt(rawItem.quantity || 1, 10);
-      if (isNaN(itemQtyRaw) || itemQtyRaw < 1) {
-        return NextResponse.json(
-          { success: false, message: `Quantidade inválida para o produto "${dbProduct.name}".` },
-          { status: 400 }
-        );
+      // Validação de grupos obrigatórios do produto
+      if (productGroups.length > 0) {
+        for (const grp of productGroups) {
+          if (grp.is_active !== false && grp.is_required) {
+            // Se o produto já possui variação por sizes, a escolha do tamanho já foi satisfeita
+            const isSizeGroup = grp.name?.toLowerCase().includes('tamanho') || grp.id === 'size-group';
+            if (hasProductSizes && isSizeGroup) continue;
+
+            const totalInGrp = groupCounts.get(grp.id) || 0;
+            const minReq = typeof grp.min_options === 'number' && grp.min_options > 0 ? grp.min_options : 1;
+            if (totalInGrp < minReq) {
+              return NextResponse.json(
+                { success: false, message: `A seleção de pelo menos ${minReq} opção(ões) no grupo "${grp.name}" é obrigatória.` },
+                { status: 400 }
+              );
+            }
+          }
+        }
       }
-      const itemQty = Math.min(itemQtyRaw, 50); // máximo 50 unidades por item
+
+      optionsTotalPerItem = Math.max(0, Number(optionsTotalPerItem.toFixed(2)));
       const itemUnitPrice = Number((baseUnitPrice + optionsTotalPerItem).toFixed(2));
       const itemTotalPrice = Number((itemUnitPrice * itemQty).toFixed(2));
       calculatedSubtotal += itemTotalPrice;
@@ -388,16 +500,21 @@ export async function POST(req: NextRequest) {
         });
 
         if (!pixResult.success) {
-          // Remove o pedido rascunho para permitir nova tentativa sem duplicata
+          // Preserva o pedido para permitir rastreabilidade e reconciliação sem risco de órfãos
           try {
-            await repository.deleteOrder(createdOrder.id);
-          } catch (delErr) {
-            console.error('Falha ao remover pedido apos erro Pix:', delErr);
+            await repository.updatePaymentStatus(createdOrder.id, 'failed', {
+              failure_reason: pixResult.errorMessage || 'gateway_rejected',
+              failed_at: new Date().toISOString(),
+            });
+            await repository.updateOrderStatus(createdOrder.id, 'cancelled');
+          } catch (updateErr) {
+            console.error('Falha ao atualizar pedido apos erro Pix:', updateErr);
           }
           return NextResponse.json(
             {
               success: false,
               message: pixResult.errorMessage || 'Não foi possível gerar a cobrança Pix. Tente novamente ou escolha outra forma de pagamento.',
+              order_code: createdOrder.order_code,
             },
             { status: 400 }
           );
@@ -451,14 +568,8 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get('acai_admin_session')?.value;
-    const { isValidSessionToken } = await import('@/lib/auth/admin-auth');
-    if (!isValidSessionToken(sessionCookie)) {
-      return NextResponse.json(
-        { success: false, message: 'Acesso restrito aos administradores.' },
-        { status: 401 }
-      );
-    }
+    const authError = requireAdmin(req);
+    if (authError) return authError;
 
     const orders = await repository.getOrders();
     return NextResponse.json({

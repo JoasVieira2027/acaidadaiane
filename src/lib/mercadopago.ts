@@ -173,6 +173,7 @@ export async function getPaymentStatus(paymentId: string): Promise<{
   dateApproved?: string;
   transactionAmount?: number;
   externalReference?: string;
+  currencyId?: string;
 } | null> {
   const token = getMpAccessToken();
   if (!token || paymentId.startsWith('SIM-PIX-')) {
@@ -195,6 +196,7 @@ export async function getPaymentStatus(paymentId: string): Promise<{
       dateApproved: data.date_approved,
       transactionAmount: data.transaction_amount ? Number(data.transaction_amount) : undefined,
       externalReference: data.external_reference ? String(data.external_reference) : undefined,
+      currencyId: data.currency_id ? String(data.currency_id) : undefined,
     };
   } catch (err) {
     console.error('Erro ao consultar status no MP:', err);

@@ -182,7 +182,19 @@ export async function POST(req: NextRequest) {
 
           if (matchedOrder) {
             if (paymentInfo.status === 'approved') {
-              // Validacao de valor: valor pago no MP nao pode ser inferior ao valor do pedido
+              // 1. Validacao de Moeda: deve ser estritamente BRL
+              if (paymentInfo.currencyId && paymentInfo.currencyId !== 'BRL') {
+                console.error(`[Webhook] Moeda divergente para ${matchedOrder.order_code}: recebido ${paymentInfo.currencyId}, esperado BRL`);
+                return NextResponse.json({ received: true, error: 'currency_mismatch' });
+              }
+
+              // 2. Validacao de Referencia Externa (se fornecida pelo gateway, deve bater com o codigo do pedido)
+              if (paymentInfo.externalReference && paymentInfo.externalReference !== matchedOrder.order_code) {
+                console.error(`[Webhook] Referencia divergente: recebido ${paymentInfo.externalReference}, esperado ${matchedOrder.order_code}`);
+                return NextResponse.json({ received: true, error: 'reference_mismatch' });
+              }
+
+              // 3. Validacao de Valor: valor pago no MP nao pode ser inferior ao valor do pedido
               const paidAmount = Number(paymentInfo.transactionAmount || 0);
               const orderAmount = Number(matchedOrder.total_amount || 0);
               if (orderAmount > 0 && paidAmount > 0 && paidAmount < orderAmount - 0.05) {
