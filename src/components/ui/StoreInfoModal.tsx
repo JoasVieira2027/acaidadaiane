@@ -288,7 +288,7 @@ export function StoreInfoModal({ isOpen, onClose, settings, storeStatus }: Store
                     color: 'var(--text-primary)',
                   }}
                 >
-                  💳 Cartão na Entrega (Débito/Crédito)
+                  💳 Cartão por Aproximação (NFC)
                 </span>
               )}
               {settings?.accept_cash !== false && (

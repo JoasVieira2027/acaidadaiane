@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { X, Trash2, Plus, Minus, Tag, MapPin, AlertCircle, ShoppingBag, Pencil, ClipboardList } from 'lucide-react';
+import { X, Trash2, Plus, Minus, Tag, MapPin, AlertCircle, ShoppingBag, Pencil, ClipboardList, Truck, CheckCircle } from 'lucide-react';
 import { CartItem, Neighborhood, StoreCurrentStatus } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -26,6 +26,8 @@ export function CartDrawer() {
     discountAmount,
     totalAmount,
     isFreeDeliveryEligible,
+    freeDeliveryThreshold,
+    freeDeliveryRemaining,
     minOrderDifference,
     isCartDrawerOpen,
     setIsCartDrawerOpen,
@@ -357,7 +359,7 @@ export function CartDrawer() {
                       const found = neighborhoods.find((n) => n.id === e.target.value);
                       setNeighborhood(found || null);
                     }}
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+                    style={{ fontSize: '16px', padding: '0.5rem 0.75rem' }}
                   >
                     <option value="">{t.cart.selectNeighborhood}</option>
                     {neighborhoods.map((nb) => (
@@ -367,11 +369,61 @@ export function CartDrawer() {
                     ))}
                   </select>
 
-                  {neighborhood?.free_delivery_threshold && (
-                    <p style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '0.25rem' }}>
-                      {t.cart.freeDeliveryAbove} R$ {neighborhood.free_delivery_threshold.toFixed(2)}
-                      {isFreeDeliveryEligible && ' (Qualificado!)'}
+                  {!neighborhood && (
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      Selecione seu bairro para calcular o frete e frete grátis.
                     </p>
+                  )}
+
+                  {neighborhood && freeDeliveryThreshold && (
+                    <div
+                      style={{
+                        marginTop: '0.4rem',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        backgroundColor: isFreeDeliveryEligible ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-accent-subtle)',
+                        border: isFreeDeliveryEligible ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid var(--border-color)',
+                        color: isFreeDeliveryEligible ? 'var(--success)' : 'var(--text-primary)',
+                      }}
+                    >
+                      {isFreeDeliveryEligible ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <CheckCircle size={15} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                          <span>Você ganhou frete grátis!</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--brand-primary)' }}>
+                            <Truck size={15} style={{ flexShrink: 0 }} />
+                            <span>
+                              Faltam {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(freeDeliveryRemaining)} para ganhar frete grátis
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              marginTop: '0.35rem',
+                              height: '4px',
+                              width: '100%',
+                              backgroundColor: 'rgba(0,0,0,0.08)',
+                              borderRadius: '999px',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: '100%',
+                                width: `${Math.min(100, Math.max(0, (subtotal / freeDeliveryThreshold) * 100))}%`,
+                                backgroundColor: 'var(--brand-primary)',
+                                borderRadius: '999px',
+                                transition: 'width 0.3s ease',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {minOrderDifference > 0 && (
@@ -418,7 +470,7 @@ export function CartDrawer() {
                     onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                     placeholder={t.cart.couponCode}
                     className="form-input"
-                    style={{ fontSize: '0.85rem', padding: '0.45rem 0.65rem' }}
+                    style={{ fontSize: '16px', padding: '0.45rem 0.65rem' }}
                   />
                   <button
                     type="submit"
@@ -460,7 +512,7 @@ export function CartDrawer() {
               {orderType === 'delivery' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>{t.common.deliveryFee}</span>
-                  <span style={{ fontWeight: 600 }}>
+                  <span style={{ fontWeight: 600, color: isFreeDeliveryEligible ? 'var(--success)' : 'inherit' }}>
                     {deliveryFee === 0 ? t.common.free : `R$ ${deliveryFee.toFixed(2)}`}
                   </span>
                 </div>

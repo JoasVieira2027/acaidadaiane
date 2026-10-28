@@ -23,6 +23,8 @@ type CartContextType = {
   totalAmount: number;
   totalItemCount: number;
   isFreeDeliveryEligible: boolean;
+  freeDeliveryThreshold: number | null;
+  freeDeliveryRemaining: number;
   minOrderDifference: number;
   isCartDrawerOpen: boolean;
   setIsCartDrawerOpen: (open: boolean) => void;
@@ -177,13 +179,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return items.reduce((sum, item) => sum + item.quantity, 0);
   }, [items]);
 
+  const freeDeliveryThreshold = useMemo(() => {
+    if (orderType !== 'delivery' || !neighborhood) return null;
+    return neighborhood.free_delivery_threshold && neighborhood.free_delivery_threshold > 0
+      ? neighborhood.free_delivery_threshold
+      : null;
+  }, [orderType, neighborhood]);
+
+  const freeDeliveryRemaining = useMemo(() => {
+    if (!freeDeliveryThreshold) return 0;
+    if (subtotal >= freeDeliveryThreshold) return 0;
+    return Math.max(0, Number((freeDeliveryThreshold - subtotal).toFixed(2)));
+  }, [freeDeliveryThreshold, subtotal]);
+
   const isFreeDeliveryEligible = useMemo(() => {
     if (orderType !== 'delivery' || !neighborhood) return false;
-    if (neighborhood.free_delivery_threshold && subtotal >= neighborhood.free_delivery_threshold) {
+    if (freeDeliveryThreshold && subtotal >= freeDeliveryThreshold) {
       return true;
     }
     return false;
-  }, [orderType, neighborhood, subtotal]);
+  }, [orderType, neighborhood, subtotal, freeDeliveryThreshold]);
 
   const deliveryFee = useMemo(() => {
     if (orderType === 'pickup') return 0;
@@ -260,6 +275,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         totalAmount,
         totalItemCount,
         isFreeDeliveryEligible,
+        freeDeliveryThreshold,
+        freeDeliveryRemaining,
         minOrderDifference,
         isCartDrawerOpen,
         setIsCartDrawerOpen,

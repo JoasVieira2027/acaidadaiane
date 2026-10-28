@@ -142,7 +142,7 @@ export function DeliveryFeeModal({ isOpen, onClose }: DeliveryFeeModalProps) {
               className="form-input"
               style={{
                 paddingLeft: '2.25rem',
-                fontSize: '0.85rem',
+                fontSize: '16px',
                 height: '38px',
                 borderRadius: 'var(--radius-md)',
               }}

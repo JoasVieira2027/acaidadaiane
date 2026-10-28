@@ -167,6 +167,7 @@ export function CouponModal({ isOpen, onClose }: CouponModalProps) {
                     letterSpacing: '1px',
                     height: '44px',
                     borderRadius: 'var(--radius-md)',
+                    fontSize: '16px',
                   }}
                   autoFocus
                 />

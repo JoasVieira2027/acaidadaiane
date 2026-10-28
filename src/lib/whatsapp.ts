@@ -26,7 +26,7 @@ function getPaymentMethodLabel(method: string): string {
     case 'cash':
       return 'Dinheiro na Entrega / Retirada';
     case 'card_delivery':
-      return 'Cartão na Entrega / Retirada (Maquininha)';
+      return 'Cartão por Aproximação (NFC)';
     case 'card_link':
       return 'Cartão Online por Link de Pagamento';
     default:

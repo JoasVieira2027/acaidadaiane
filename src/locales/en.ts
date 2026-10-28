@@ -72,7 +72,7 @@ export const en = {
     paymentMethod: 'Payment Method',
     pix: 'Instant Pix Online',
     cash: 'Cash upon delivery / pickup',
-    cardDelivery: 'Card Machine (Upon delivery / pickup)',
+    cardDelivery: 'Contactless Card (NFC)',
     cardLink: 'Online Card (Request payment link via WhatsApp)',
     confirmOrder: 'Confirm and Submit Order',
     processing: 'Processing secure order...',

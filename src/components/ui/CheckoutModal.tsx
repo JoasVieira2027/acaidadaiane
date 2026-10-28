@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, CreditCard, Banknote, QrCode, MessageSquare, AlertCircle, Loader2 } from 'lucide-react';
+import { X, CreditCard, Banknote, QrCode, AlertCircle, Loader2, Truck, CheckCircle } from 'lucide-react';
 import { PaymentMethod } from '@/lib/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -14,7 +14,13 @@ export function CheckoutModal() {
     orderType,
     neighborhood,
     coupon,
+    subtotal,
+    deliveryFee,
+    discountAmount,
     totalAmount,
+    isFreeDeliveryEligible,
+    freeDeliveryThreshold,
+    freeDeliveryRemaining,
     clearCart,
     isCheckoutModalOpen,
     setIsCheckoutModalOpen,
@@ -323,6 +329,57 @@ export function CheckoutModal() {
                       />
                     </div>
                   </div>
+
+                  {/* Status Dinâmico de Frete Grátis no Checkout */}
+                  {neighborhood && freeDeliveryThreshold && (
+                    <div
+                      style={{
+                        padding: '0.6rem 0.85rem',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        backgroundColor: isFreeDeliveryEligible ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-accent-subtle)',
+                        border: isFreeDeliveryEligible ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid var(--border-color)',
+                        color: isFreeDeliveryEligible ? 'var(--success)' : 'var(--text-primary)',
+                      }}
+                    >
+                      {isFreeDeliveryEligible ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                          <span>Você ganhou frete grátis!</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--brand-primary)' }}>
+                            <Truck size={16} style={{ flexShrink: 0 }} />
+                            <span>
+                              Faltam {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(freeDeliveryRemaining)} para ganhar frete grátis
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              marginTop: '0.35rem',
+                              height: '4px',
+                              width: '100%',
+                              backgroundColor: 'rgba(0,0,0,0.08)',
+                              borderRadius: '999px',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: '100%',
+                                width: `${Math.min(100, Math.max(0, (subtotal / freeDeliveryThreshold) * 100))}%`,
+                                backgroundColor: 'var(--brand-primary)',
+                                borderRadius: '999px',
+                                transition: 'width 0.3s ease',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -382,8 +439,8 @@ export function CheckoutModal() {
                 <label
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
+                    flexDirection: 'column',
+                    gap: '0.35rem',
                     padding: '0.85rem 1rem',
                     borderRadius: 'var(--radius-md)',
                     border: paymentMethod === 'card_delivery' ? '2px solid var(--brand-primary)' : '1px solid var(--border-color)',
@@ -391,39 +448,57 @@ export function CheckoutModal() {
                     cursor: 'pointer',
                   }}
                 >
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="card_delivery"
-                    checked={paymentMethod === 'card_delivery'}
-                    onChange={() => setPaymentMethod('card_delivery')}
-                  />
-                  <CreditCard size={20} style={{ color: 'var(--brand-primary)' }} />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{t.checkout.cardDelivery}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value="card_delivery"
+                      checked={paymentMethod === 'card_delivery'}
+                      onChange={() => setPaymentMethod('card_delivery')}
+                    />
+                    <CreditCard size={20} style={{ color: 'var(--brand-primary)' }} />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cartão por Aproximação (NFC)</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.76rem',
+                      color: paymentMethod === 'card_delivery' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                      paddingLeft: '1.95rem',
+                      lineHeight: 1.35,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Cartão somente por aproximação (NFC). É necessário um celular ou dispositivo compatível com pagamento por aproximação.
+                  </div>
                 </label>
 
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.85rem 1rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: paymentMethod === 'card_link' ? '2px solid var(--brand-primary)' : '1px solid var(--border-color)',
-                    backgroundColor: paymentMethod === 'card_link' ? 'var(--bg-accent-subtle)' : 'var(--bg-tertiary)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="card_link"
-                    checked={paymentMethod === 'card_link'}
-                    onChange={() => setPaymentMethod('card_link')}
-                  />
-                  <MessageSquare size={20} style={{ color: 'var(--brand-primary)' }} />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{t.checkout.cardLink}</span>
-                </label>
+                {/* Aviso explicativo obrigatório quando opção Cartão estiver selecionada */}
+                {paymentMethod === 'card_delivery' && (
+                  <div
+                    style={{
+                      padding: '0.75rem 0.9rem',
+                      backgroundColor: 'rgba(147, 51, 234, 0.08)',
+                      border: '1.5px solid var(--brand-primary)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.82rem',
+                      lineHeight: 1.4,
+                      color: 'var(--text-primary)',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.55rem',
+                    }}
+                  >
+                    <AlertCircle size={17} style={{ color: 'var(--brand-primary)', flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--brand-primary)', marginBottom: '0.15rem' }}>
+                        Atenção aos Pagamentos com Cartão:
+                      </div>
+                      <div>
+                        Cartão somente por aproximação (NFC). É necessário um celular ou dispositivo compatível com pagamento por aproximação. Não aceitamos digitação de número, inserção manual ou cartão sem aproximação.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -450,6 +525,20 @@ export function CheckoutModal() {
               flexShrink: 0,
             }}
           >
+            {paymentMethod === 'card_delivery' && (
+              <div
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--brand-primary)',
+                  fontWeight: 600,
+                  marginBottom: '0.65rem',
+                  textAlign: 'center',
+                  lineHeight: 1.35,
+                }}
+              >
+                Cartão somente por aproximação (NFC). É necessário um celular ou dispositivo compatível com pagamento por aproximação.
+              </div>
+            )}
             <button
               type="submit"
               disabled={loading}

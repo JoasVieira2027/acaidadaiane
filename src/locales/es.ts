@@ -72,7 +72,7 @@ export const es = {
     paymentMethod: 'Forma de Pago',
     pix: 'Pix Online (Aprobación Inmediata)',
     cash: 'Efectivo en Entrega / Retiro',
-    cardDelivery: 'Tarjeta en Punto de Venta (Entrega / Retiro)',
+    cardDelivery: 'Tarjeta por Aproximación (NFC)',
     cardLink: 'Tarjeta Online (Solicitar enlace por WhatsApp)',
     confirmOrder: 'Confirmar y Enviar Pedido',
     processing: 'Procesando pedido seguro...',

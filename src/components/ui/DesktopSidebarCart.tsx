@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MapPin, ShoppingBag, Percent, ChevronRight, Plus, Minus, Trash2, Clock, Check } from 'lucide-react';
+import { MapPin, ShoppingBag, Percent, ChevronRight, Plus, Minus, Trash2, Clock, Check, Truck } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { StoreCurrentStatus, StoreSettings } from '@/lib/types';
 
@@ -30,6 +30,9 @@ export function DesktopSidebarCart({
     deliveryFee,
     discountAmount,
     totalAmount,
+    isFreeDeliveryEligible,
+    freeDeliveryThreshold,
+    freeDeliveryRemaining,
     setIsCheckoutModalOpen,
   } = useCart();
 
@@ -73,8 +76,15 @@ export function DesktopSidebarCart({
                 {neighborhood ? `Entrega em: ${neighborhood.name}` : 'Calcular taxa e tempo de entrega'}
               </span>
               {neighborhood && (
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                  Taxa: {Number(neighborhood.delivery_fee) === 0 ? 'Grátis' : formattedDelivery}
+                <div style={{ fontSize: '0.72rem', color: isFreeDeliveryEligible ? 'var(--success)' : 'var(--text-muted)', fontWeight: isFreeDeliveryEligible ? 700 : 'normal' }}>
+                  Taxa: {deliveryFee === 0 ? 'Grátis' : formattedDelivery}
+                </div>
+              )}
+              {neighborhood && freeDeliveryThreshold && (
+                <div style={{ fontSize: '0.73rem', fontWeight: 700, marginTop: '2px', color: isFreeDeliveryEligible ? 'var(--success)' : 'var(--brand-primary)' }}>
+                  {isFreeDeliveryEligible
+                    ? 'Você ganhou frete grátis!'
+                    : `Faltam ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(freeDeliveryRemaining)} para ganhar frete grátis`}
                 </div>
               )}
             </div>
@@ -194,10 +204,35 @@ export function DesktopSidebarCart({
                 <span>Subtotal</span>
                 <span>{formattedSubtotal}</span>
               </div>
-              {deliveryFee > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+              {neighborhood && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: isFreeDeliveryEligible ? 'var(--success)' : 'var(--text-muted)' }}>
                   <span>Taxa de entrega</span>
-                  <span>{formattedDelivery}</span>
+                  <span style={{ fontWeight: isFreeDeliveryEligible ? 700 : 'normal' }}>
+                    {deliveryFee === 0 ? 'Grátis' : formattedDelivery}
+                  </span>
+                </div>
+              )}
+              {neighborhood && freeDeliveryThreshold && (
+                <div
+                  style={{
+                    padding: '0.35rem 0.6rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    backgroundColor: isFreeDeliveryEligible ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-accent-subtle)',
+                    border: isFreeDeliveryEligible ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--border-color)',
+                    color: isFreeDeliveryEligible ? 'var(--success)' : 'var(--brand-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                  }}
+                >
+                  <Truck size={13} style={{ flexShrink: 0 }} />
+                  <span>
+                    {isFreeDeliveryEligible
+                      ? 'Você ganhou frete grátis!'
+                      : `Faltam ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(freeDeliveryRemaining)} para ganhar frete grátis`}
+                  </span>
                 </div>
               )}
               {discountAmount > 0 && (
